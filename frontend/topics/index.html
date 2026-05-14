@@ -8,14 +8,19 @@
 </head>
 <body>
     <nav class="headerbox">
-        <h1><a href="/" class="sitetitle">QRank - Free and Open Source Problem Bank </a></h1>
-        <ul class="tablist">
-            <li><a class="tabitems" href="/topics/index.html">Topics</a></li>
-            <li><a class="tabitems" href="/problems/index.html">Problem Sets</a></li>
-            <li><a class="tabitems" href="/competitions/index.html">Competitions</a></li>
-            <li><a class="tabitems" href="/rankings/index.html">Rankings</a></li>
-        </ul>
-        <p class="credits">Made by Mitchell Li</p>
+        <div class="left">
+            <a href="/" class="sitetitle">QRank - Free and Open Source Problem Bank </a>
+            <ul class="tablist">
+                <li><a class="tabitems" href="/topics/">Topics</a></li>
+                <li><a class="tabitems" href="/problems/">Problem Sets</a></li>
+                <li><a class="tabitems" href="/competitions/">Competitions</a></li>
+                <li><a class="tabitems" href="/rankings/">Rankings</a></li>
+            </ul>
+        </div>
+        <div class="right">
+            <button id="themetoggler" class="themebutton">Dark Mode</button>
+            <p class="credits">Made by Mitchell Li</p>
+        </div>
     </nav>
     <main>
         <div style="padding: 50px;">
@@ -83,6 +88,19 @@
                     <a href="#">Energy and Momentum of Rotating Systems <span class="tag">(XLPHYS)</span></a>
                     <a href="#">Oscillations <span class="tag">(XLPHYS)</span></a>
                     <a href="#">Fluids <span class="tag">(XLPHYS)</span></a>
+                </div>
+            </div>
+            <div class="topicboxes">
+                <div class="topicheader">
+                    <h3 class="topictitle">Computer Science</h3>
+                    <button class="dropdownbutton" onclick="toggleDropdown(this)">⌄</button>
+                </div>
+                <div class="dropdowncontent">
+                    <a href="#">Basics of Programming <span class="tag">(CS1)</span></a>
+                    <a href="#">Functions & Conditionals <span class="tag">(CS1)</span></a>
+                    <a href="#">Loops & Lists <span class="tag">(CS1)</span></a>
+                    <a href="#">Strings <span class="tag">(CS1)</span></a>
+                    <a href="#">Algorithm Design</a>
                 </div>
             </div>
         </div>

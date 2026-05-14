@@ -2,25 +2,56 @@ body {
   font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
   margin: 0;
   padding: 0;
-  background-color: aliceblue;
+  background-color: var(--bg);
+  color: var(--text);
+  transition: background-color 0.2s ease, color 0.2s ease;
+}
+
+:root {
+  --bg: aliceblue;
+  --text: black;
+  --textsec: rgb(79,79,79);
+  --card: rgb(179,209,231);
+  --cardsec: rgb(132, 183, 231);
+  --shadow: rgb(65, 106, 146);
+}
+
+.dark {
+  --bg: rgb(18, 18, 18);
+  --text: rgb(235, 235, 235);
+  --textsec: rgb(200,200,200);
+  --card: rgb(35, 35, 35);
+  --cardsec: rgb(50,50,50);
+  --shadow: rgb(120,120,120);
 }
 
 .sitetitle {
   font-size: 24px;
-  margin: 30px;
   text-decoration: none;
-  color: black;
+  color: var(--text);
   font-weight: 500;
 }
 
 .headerbox {
   display: flex;
-  padding: 20px;
+  padding: 30px 60px 30px 60px;
   text-align: left;
-  background: rgb(179, 209, 231);
-  color: black;
+  align-items: center;
+  justify-content: space-between;
+  background: var(--card);
+  color: var(--text);
   font-size: 12px;
-  box-shadow: 1px 1px 1px rgb(65, 106, 146);
+  box-shadow: 1px 1px 1px var(--shadow);
+  line-height: 1;
+}
+
+.left, .right {
+  display: flex;
+  align-items: center;
+}
+
+.right {
+  gap: 30px;
 }
 
 .tablist {
@@ -34,15 +65,21 @@ body {
 .tabitems {
   display: flex;
   text-decoration: none;
-  color: black;
+  color: var(--text);
 }
 
-.credits {
+.themebutton {
+  border: none;
+  background: none;
+  cursor: pointer;
+  font-family: inherit;
+  color: var(--text);
+}
+
+.themebutton, .credits {
+  margin: 0;
+  padding: 0;
   font-size: 18px;
-  margin-left: auto;
-  margin-right: 30px;
-  align-items: center;
-  display: flex;
 }
 
 .welcometext {
@@ -82,15 +119,15 @@ body {
   height: 225px;
   text-align: center;
   margin-top: 50px;
-  background-color: rgb(179, 209, 231);
-  box-shadow: 1px 1px 1px rgb(65, 106, 146);
+  background-color: var(--card);
+  box-shadow: 1px 1px 1px var(--shadow);
   text-decoration: none;
-  color: black;
+  color: var(--text);
   transition: 0.3s ease;
 }
 
 .titleboxes:hover {
-  box-shadow: 2px 2px 2px rgb(65, 106, 146);
+  box-shadow: 2px 2px 2px var(--shadow);
 }
 
 .boxtitle {
@@ -103,7 +140,7 @@ body {
   margin-block-start: 0;
   margin-block-end: 0;
   padding: 20px;
-  background-color: rgb(132, 183, 231);
+  background-color: var(--cardsec);
 }
 
 .topicboxes {
@@ -114,10 +151,10 @@ body {
   width: 100%;
   text-align: center;
   margin-top: 50px;
-  background-color: rgb(179, 209, 231);
-  box-shadow: 1px 1px 1px rgb(65, 106, 146);
+  background-color: var(--card);
+  box-shadow: 1px 1px 1px var(--shadow);
   text-decoration: none;
-  color: black;
+  color: var(--text);
   transition: 0.3s ease;
 }
 
@@ -141,6 +178,7 @@ body {
 
 .dropdownbutton {
   background: none;
+  color: var(--text);
   border: none;
   font-size: 36px;
   cursor: pointer;
@@ -155,10 +193,10 @@ body {
 }
 
 .dropdowncontent {
-  background-color: rgb(132, 183, 231);
+  background-color: var(--card);
   width: 100%;
-  box-shadow: 1px 1px 1px rgb(65, 106, 146);
-  border-top: 1px solid rgb(65, 106, 146);
+  box-shadow: 1px 1px 1px var(--shadow);
+  border-top: 1px solid var(--shadow);
   margin-top: 2px;
   box-sizing: border-box;
   max-height: 0;
@@ -171,7 +209,7 @@ body {
 .dropdowncontent a {
   display: block;
   text-decoration: none;
-  color: black;
+  color: var(--text);
   padding: 20px;
   text-align: left;
   font-size: 24px;
@@ -188,5 +226,5 @@ body {
 
 .tag {
   font-size: 16px;
-  color: rgb(79, 79, 79);
+  color: var(--textsec);
 }
