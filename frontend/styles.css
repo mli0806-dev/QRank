@@ -26,7 +26,7 @@ body {
 }
 
 .sitetitle {
-  font-size: 24px;
+  font-size: 20px;
   text-decoration: none;
   color: var(--text);
   font-weight: 500;
@@ -40,7 +40,6 @@ body {
   justify-content: space-between;
   background: var(--card);
   color: var(--text);
-  font-size: 12px;
   box-shadow: 1px 1px 1px var(--shadow);
   line-height: 1;
 }
@@ -58,7 +57,7 @@ body {
   display: flex;
   list-style-type: none;
   gap: 30px;
-  font-size: 18px;
+  font-size: 14px;
   align-items: center;
 }
 
@@ -79,26 +78,26 @@ body {
 .themebutton, .credits {
   margin: 0;
   padding: 0;
-  font-size: 18px;
+  font-size: 14px;
 }
 
 .welcometext {
   text-align: center;
   margin-top: 80px;
-  font-size: 48px;
+  font-size: 36px;
   font-weight: 500;
 }
 
 .intro {
   text-align: center;
   margin-top: 20px;
-  font-size: 24px;
+  font-size: 18px;
 }
 
 .body {
   text-align: center;
   margin-top: 50px;
-  font-size: 20px;
+  font-size: 16px;
   max-width: 800px;
   margin-left: auto;
   margin-right: auto;
@@ -115,8 +114,8 @@ body {
   display: flex;
   flex-direction: column;
   justify-content: flex-end;
-  width: 350px;
-  height: 225px;
+  width: 225px;
+  height: 175px;
   text-align: center;
   margin-top: 50px;
   background-color: var(--card);
@@ -124,6 +123,7 @@ body {
   text-decoration: none;
   color: var(--text);
   transition: 0.3s ease;
+  font-size: 14px;
 }
 
 .titleboxes:hover {
@@ -132,7 +132,7 @@ body {
 
 .boxtitle {
   font-weight: 500;
-  font-size: 36px;
+  font-size: 24px;
   margin: auto;
 }
 
@@ -169,10 +169,10 @@ body {
 
 .topictitle {
   font-weight: 500;
-  font-size: 36px;
+  font-size: 24px;
   text-align: left; 
   width: 100%; 
-  padding: 50px;
+  padding: 30px;
   margin: 0;
 }
 
@@ -180,7 +180,7 @@ body {
   background: none;
   color: var(--text);
   border: none;
-  font-size: 36px;
+  font-size: 24px;
   cursor: pointer;
   display: flex;
   align-items: center;
@@ -212,7 +212,7 @@ body {
   color: var(--text);
   padding: 20px;
   text-align: left;
-  font-size: 24px;
+  font-size: 18px;
 }
 
 .dropdowncontent.show {
@@ -225,6 +225,6 @@ body {
 }
 
 .tag {
-  font-size: 16px;
+  font-size: 12px;
   color: var(--textsec);
 }
