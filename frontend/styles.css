@@ -12,8 +12,8 @@ body {
   --text: black;
   --textsec: rgb(79,79,79);
   --card: rgb(179,209,231);
-  --cardsec: rgb(132, 183, 231);
-  --shadow: rgb(65, 106, 146);
+  --cardsec: rgb(206, 227, 246);
+  --shadow: rgb(127, 159, 191);
 }
 
 .dark {
@@ -193,7 +193,7 @@ body {
 }
 
 .dropdowncontent {
-  background-color: var(--card);
+  background-color: var(--cardsec);
   width: 100%;
   box-shadow: 1px 1px 1px var(--shadow);
   border-top: 1px solid var(--shadow);
@@ -227,4 +227,60 @@ body {
 .tag {
   font-size: 12px;
   color: var(--textsec);
+}
+
+.calendarbox {
+  margin: 50px auto;
+  max-width: 800px;
+  background-color: var(--card);
+  box-shadow: 1px 1px 1px var(--shadow);
+  padding: 20px;
+}
+
+.calendarlabels {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 10px;
+  font-weight: 500;
+  padding-left: 30px;
+  padding-right: 30px;
+  text-align: center;
+}
+
+.calendarbutton {
+  all: unset;
+  font-family: inherit;
+  font-size: 16px;
+  color: var(--text);
+}
+
+.calendarheader {
+  display: flex;
+  line-height: 1;
+  align-items: center;
+  margin-bottom: 30px;
+  gap: 30px;
+  padding-left: 30px;
+  padding-right: 30px;
+}
+
+.monthyear {
+  font-size: 24px;
+  font-weight: 500;
+  color: var(--text);
+  margin-left: auto;
+}
+
+#calendarcontainer {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  grid-auto-rows: minmax(100px, auto);
+  gap: 10px;
+  padding: 30px;
+}
+
+.calendarcell {
+  background-color: var(--cardsec);
+  font-size: 12px;
+  padding: 10px;
 }

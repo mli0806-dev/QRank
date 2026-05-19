@@ -57,4 +57,33 @@ app.get("/api/topics", async (req, res) => {
     }
 });
 
+app.get("/api/competitions", async (req, res) => {
+    try {
+        const {year, month} = req.query;
+
+        if (!year || !month) {
+            return res.status(400).json({message: "Year and month are required."});
+        }
+
+        const startDateBoundary = `${year}-${month.padStart(2, '0')}-01`;
+        const lastDay = new Date(parseInt(year), parseInt(month), 0).getDate();
+        const endDateBoundary = `${year}-${month.padStart(2, '0')}-${lastDay}`;
+
+        const [rows] = await db.query(`
+            SELECT id, title,
+                DATE_FORMAT(start_date, '%Y-%m-%d') AS start_date,
+                DATE_FORMAT(end_date, '%Y-%m-%d') AS end_date,
+                TIME_FORMAT(start_time, '%i:%s') AS raw_start_time,
+                TIME_FORMAT(start_time, '%l:%i:%p') AS start_time,
+                TIME_FORMAT(end_time, '%l:%i:%p') AS end_time
+            FROM competitions
+            WHERE start_date <= ? AND end_date >= ?
+        `, [endDateBoundary, startDateBoundary]);
+        res.json(rows);
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({message: "Database query failed."})
+    }
+});
+
 app.listen(3000, () => console.log("Server running on port 3000"));

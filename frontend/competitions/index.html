@@ -9,7 +9,7 @@
 <body>
     <nav class="headerbox">
         <div class="left">
-            <a href="/" class="sitetitle">QRank - Free and Open Source Problem Bank </a>
+            <a href="/" class="sitetitle">QRank - Competition Calendar </a>
             <ul class="tablist">
                 <li><a class="tabitems" href="/topics/">Topics</a></li>
                 <li><a class="tabitems" href="/problems/">Problem Sets</a></li>
@@ -23,7 +23,26 @@
         </div>
     </nav>
     <main>
+        <h1 class="welcometext">Competition Calendar</h1>
+        <div class="calendarbox">
+            <div class="calendarheader" id="calendarheader">
+                <button id="prevmonth" class="calendarbutton">Previous Month</button>
+                <button id="nextmonth" class="calendarbutton">Next Month</button>
+                <div id="monthyear" class="monthyear"></div>
+            </div>
+            <div class="calendarlabels">
+                <div class="calendarlabel">Sun</div>
+                <div class="calendarlabel">Mon</div>
+                <div class="calendarlabel">Tue</div>
+                <div class="calendarlabel">Wed</div>
+                <div class="calendarlabel">Thu</div>
+                <div class="calendarlabel">Fri</div>
+                <div class="calendarlabel">Sat</div>
+            </div>
+            <div id="calendarcontainer"></div>
+        </div>
     </main>
+    <script src="calendar.js"></script>
     <script src="../script.js"></script>
 </body>
 </html>
