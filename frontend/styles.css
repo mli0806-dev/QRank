@@ -1,28 +1,28 @@
 body {
-  font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  font-family: 'D-DIN', sans-serif;
   margin: 0;
   padding: 0;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
   background-color: var(--bg);
   color: var(--text);
-  transition: background-color 0.2s ease, color 0.2s ease;
+}
+
+main {
+  flex: 1;
 }
 
 :root {
-  --bg: aliceblue;
+  --bg: rgb(245, 235, 220);
   --text: black;
-  --textsec: rgb(79,79,79);
-  --card: rgb(179,209,231);
-  --cardsec: rgb(206, 227, 246);
-  --shadow: rgb(127, 159, 191);
+  --card: rgb(251, 250, 249);
 }
 
 .dark {
   --bg: rgb(18, 18, 18);
   --text: rgb(235, 235, 235);
-  --textsec: rgb(200,200,200);
   --card: rgb(35, 35, 35);
-  --cardsec: rgb(50,50,50);
-  --shadow: rgb(120,120,120);
 }
 
 .sitetitle {
@@ -38,10 +38,19 @@ body {
   text-align: left;
   align-items: center;
   justify-content: space-between;
-  background: var(--card);
+  background: var(--bg);
   color: var(--text);
-  box-shadow: 1px 1px 1px var(--shadow);
   line-height: 1;
+  position: sticky;
+  top: 0;
+  z-index: 1000;
+}
+
+.headerbox .sitetitle,
+.headerbox .tabitems,
+.headerbox .themebutton,
+.headerbox .credits {
+  color: var(--text);
 }
 
 .left, .right {
@@ -51,6 +60,7 @@ body {
 
 .right {
   gap: 30px;
+  margin-left: 30px;
 }
 
 .tablist {
@@ -79,6 +89,13 @@ body {
   margin: 0;
   padding: 0;
   font-size: 14px;
+}
+
+.profilemenulink {
+  text-decoration: none;
+  color: var(--text);
+  font-size: 14px;
+  font-weight: 500;
 }
 
 .welcometext {
@@ -119,15 +136,10 @@ body {
   text-align: center;
   margin-top: 50px;
   background-color: var(--card);
-  box-shadow: 1px 1px 1px var(--shadow);
   text-decoration: none;
   color: var(--text);
   transition: 0.3s ease;
   font-size: 14px;
-}
-
-.titleboxes:hover {
-  box-shadow: 2px 2px 2px var(--shadow);
 }
 
 .boxtitle {
@@ -140,7 +152,7 @@ body {
   margin-block-start: 0;
   margin-block-end: 0;
   padding: 20px;
-  background-color: var(--cardsec);
+  background-color: var(--card);
 }
 
 .topicboxes {
@@ -152,7 +164,6 @@ body {
   text-align: center;
   margin-top: 50px;
   background-color: var(--card);
-  box-shadow: 1px 1px 1px var(--shadow);
   text-decoration: none;
   color: var(--text);
   transition: 0.3s ease;
@@ -176,6 +187,234 @@ body {
   margin: 0;
 }
 
+.topictitlelink {
+  color: inherit;
+  text-decoration: none;
+}
+
+.topicdetail {
+  max-width: 1000px;
+  margin: 0 auto;
+  padding: 50px;
+}
+
+.topicdetailback {
+  display: inline-block;
+  margin-bottom: 20px;
+  color: var(--text);
+  text-decoration: none;
+  font-size: 18px;
+}
+
+.topicdetailtitle {
+  margin: 0 0 10px 0;
+  font-size: 40px;
+  font-weight: 500;
+}
+
+.topicdetailgrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 16px;
+}
+
+.topicdetailitem {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 20px;
+  background-color: var(--card);
+  color: var(--text);
+  text-decoration: none;
+  min-height: 120px;
+}
+
+.topicdetailitemtitle {
+  font-size: 20px;
+  font-weight: 500;
+}
+
+.topicdetailitemmeta {
+  font-size: 14px;
+  color: var(--text);
+  line-height: 1.5;
+}
+
+.topicdetailpanel {
+  margin-top: 20px;
+  padding: 20px;
+  background-color: var(--card);
+}
+
+.topicdetailtext {
+  font-size: 20px;
+}
+
+.rankingsearchpanel {
+  max-width: 800px;
+  margin: 40px auto 0;
+  padding: 24px;
+  background-color: var(--card);
+}
+
+.rankingsearchform {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.rankingsearchlabel {
+  font-size: 18px;
+  font-weight: 500;
+}
+
+.rankingsearchcontrols {
+  display: flex;
+  gap: 10px;
+}
+
+.rankingsearchinput {
+  flex: 1;
+  padding: 10px 12px;
+  background-color: var(--bg);
+  color: var(--text);
+  border: 1px solid var(--text);
+}
+
+.rankingsearchbutton {
+  padding: 10px 16px;
+  background-color: var(--bg);
+  color: var(--text);
+  border: 1px solid var(--text);
+  cursor: pointer;
+}
+
+.profilecontainer {
+  max-width: 1000px;
+  margin: 0 auto;
+  padding: 50px;
+}
+
+.profilelink {
+  color: var(--text);
+  text-decoration: none;
+  font-weight: 500;
+}
+
+.profileactions {
+  margin-top: 20px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 20px;
+}
+
+.profilecard {
+  width: 100%;
+  max-width: 1000px;
+  padding: 20px;
+  background-color: var(--card);
+  box-sizing: border-box;
+}
+
+.profilesectiontitle {
+  font-size: 20px;
+}
+
+.profileform {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  margin-top: 20px;
+}
+
+.profilefieldlabel {
+  font-size: 18px;
+  font-weight: 500;
+}
+
+.markdowntoolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.markdownbutton {
+  background: none;
+  border: none;
+  box-shadow: none;
+  color: var(--text);
+  padding: 0;
+  font-size: 13px;
+  font-family: inherit;
+  cursor: pointer;
+}
+
+.markdownbutton:hover {
+  opacity: 0.8;
+}
+
+.profilebio {
+  min-height: 140px;
+  resize: vertical;
+  padding: 12px;
+  line-height: 1.5;
+}
+
+.profilebiooutput {
+  line-height: 1.5;
+  white-space: pre-wrap;
+}
+
+.profilebiooutput a {
+  color: var(--text);
+  text-decoration: underline;
+}
+
+.profiletoggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 16px;
+}
+
+.resetpanel {
+  margin-top: 0;
+  padding: 20px;
+  background-color: var(--card);
+}
+
+.resetform {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 16px;
+}
+
+.resetinput {
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.resetbutton {
+  border: none;
+  background: var(--card);
+  color: var(--text);
+  font: inherit;
+  cursor: pointer;
+  padding: 12px 16px;
+}
+
+.resetstatus {
+  margin-top: 12px;
+  font-size: 14px;
+  color: var(--text);
+}
+
+.hidden {
+  display: none;
+}
+
 .dropdownbutton {
   background: none;
   color: var(--text);
@@ -193,10 +432,8 @@ body {
 }
 
 .dropdowncontent {
-  background-color: var(--cardsec);
+  background-color: var(--card);
   width: 100%;
-  box-shadow: 1px 1px 1px var(--shadow);
-  border-top: 1px solid var(--shadow);
   margin-top: 2px;
   box-sizing: border-box;
   max-height: 0;
@@ -233,7 +470,6 @@ body {
   margin: 50px auto;
   max-width: 800px;
   background-color: var(--card);
-  box-shadow: 1px 1px 1px var(--shadow);
   padding: 20px;
 }
 
@@ -283,4 +519,85 @@ body {
   background-color: var(--cardsec);
   font-size: 12px;
   padding: 10px;
+}
+
+.auth {
+  display: flex;
+  flex-direction: row;
+  align-items: stretch;
+  justify-content: center;
+  gap: 32px;
+  margin-top: 40px;
+  padding: 0 24px;
+}
+
+.authcontainer {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  background-color: var(--card);
+  width: 320px;
+  height: fit-content;
+  padding: 28px 24px 32px;
+  box-sizing: border-box;
+  flex: 1 1 0;
+  max-width: 320px;
+}
+
+.authform {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 20px;
+  font-size: 24px;
+  width: 100%;
+}
+
+.logoutbutton {
+  display: block;
+  width: fit-content;
+}
+
+.authsubmit {
+  background-color: var(--card);
+  border: none;
+  font-size: 24px;
+  color: var(--text);
+  font-family: inherit;
+}
+
+.autherrorhidden {
+  display: none;
+}
+
+.authdivider {
+  padding-bottom: 20px;
+  font-size: 14px;
+  color: var(--textsec);
+  text-align: center;
+}
+
+.inputs {
+  background-color: var(--card);
+  border: none;
+  font-size: 20px;
+  font-family: inherit;
+  color: #fff;
+  caret-color: #fff;
+}
+
+.inputs.profilebio {
+  font-size: 16px;
+}
+
+.inputs::placeholder {
+  color: rgba(255, 255, 255, 0.45);
+}
+
+.sitefooter {
+  padding: 18px 24px;
+  text-align: center;
+  font-size: 14px;
+  color: var(--textsec);
 }
