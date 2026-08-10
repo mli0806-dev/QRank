@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>QRank - Contribute</title>
+    <link rel="stylesheet" href="../styles.css">
+    <link href="https://fonts.cdnfonts.com/css/d-din" rel="stylesheet">
+</head>
+<body>
+    <nav class="headerbox">
+        <div class="left">
+            <a href="/" class="sitetitle">QRank - Contribute</a>
+            <ul class="tablist">
+                <li><a class="tabitems" href="/topics/">Topics</a></li>
+                <li><a class="tabitems" href="/problems/">Problem Sets</a></li>
+                <li><a class="tabitems" href="/competitions/">Competitions</a></li>
+                <li><a class="tabitems" href="/rankings/">Rankings</a></li>
+                <li><a class="tabitems" href="/about/">About Us</a></li>
+                <li><a class="tabitems" href="/contribute/">Contribute</a></li>
+            </ul>
+        </div>
+        <div class="right">
+            <button id="themetoggler" class="themebutton">Dark Mode</button>
+            <a class="login" href="/login/">Login</a>
+        </div>
+    </nav>
+    <main>
+        <div class="topicdetail">
+            <p class="aboutustitle">Contribute to QRank</p>
+            <p class="aboutustext">Submit a suggested problem set below and it will be added to our review queue.</p>
+            <div class="aboutuspanel">
+                <form id="suggest-problem-set-form" class="suggestionform">
+                    <label class="aboutustitle" for="suggest-name">Problem set name</label>
+                    <input id="suggest-name" class="inputs" type="text" placeholder="Example: Algebra II Review" required>
+
+                    <label class="aboutustitle" for="suggest-topic">Topic</label>
+                    <input id="suggest-topic" class="inputs" type="text" placeholder="Example: Algebra" required>
+
+                    <label class="aboutustitle" for="suggest-subtopic">Subtopic</label>
+                    <input id="suggest-subtopic" class="inputs" type="text" placeholder="Example: Quadratic Functions" required>
+
+                    <label class="aboutustitle" for="suggest-tags">Tags</label>
+                    <input id="suggest-tags" class="inputs" type="text" placeholder="comma separated tags">
+
+                    <label class="aboutustitle" for="suggest-description">Description</label>
+                    <textarea id="suggest-description" class="inputs" rows="4" placeholder="Brief description of the set"></textarea>
+
+                    <div class="problem-builder">
+                        <div class="problem-builder-header">
+                            <span class="aboutustitle">Problems</span>
+                            <button type="button" id="add-problem-button" class="authsubmit">Add problem</button>
+                        </div>
+                        <div id="problem-items" class="problem-items"></div>
+                    </div>
+
+                    <button type="submit" class="authsubmit">Submit suggestion</button>
+                </form>
+                <div id="suggestion-status" class="problemsetstatus" aria-live="polite"></div>
+            </div>
+        </div>
+    </main>
+    <footer class="sitefooter">© 2026 QRank. All rights reserved.</footer>
+    <script src="/script.js"></script>
+</body>
+</html>

@@ -92,27 +92,43 @@ function renderMarkdown(value) {
     return withParagraphs || "No bio yet.";
 }
 
-function insertMarkdownSnippet(textarea, prefix, suffix, placeholder) {
+function insertMarkdownSnippet(textarea, prefix, suffix, placeholder, remove = false) {
     if (!textarea) {
         return;
     }
 
     const start = textarea.selectionStart;
     const end = textarea.selectionEnd;
-    const selectedText = textarea.value.substring(start, end) || placeholder;
-    const replacement = `${prefix}${selectedText}${suffix}`;
+    const selectedText = textarea.value.substring(start, end);
+    const prefixBefore = textarea.value.slice(Math.max(0, start - prefix.length), start);
+    const suffixAfter = textarea.value.slice(end, end + suffix.length);
+
+    if (remove || (prefixBefore === prefix && suffixAfter === suffix)) {
+        const innerText = textarea.value.slice(start, end);
+        const newValue = textarea.value.slice(0, start - prefix.length) + innerText + textarea.value.slice(end + suffix.length);
+
+        textarea.value = newValue;
+        textarea.focus();
+        const cursorPosition = start - prefix.length;
+        textarea.setSelectionRange(cursorPosition, cursorPosition + innerText.length);
+        textarea.dispatchEvent(new Event("input", { bubbles: true }));
+        return;
+    }
+
+    const textToWrap = selectedText || placeholder;
+    const replacement = `${prefix}${textToWrap}${suffix}`;
     const newValue = textarea.value.slice(0, start) + replacement + textarea.value.slice(end);
 
     textarea.value = newValue;
     textarea.focus();
 
     const cursorStart = start + prefix.length;
-    const cursorEnd = cursorStart + selectedText.length;
+    const cursorEnd = cursorStart + textToWrap.length;
     textarea.setSelectionRange(cursorStart, cursorEnd);
     textarea.dispatchEvent(new Event("input", { bubbles: true }));
 }
 
-function applyMarkdownToBio(action) {
+function applyMarkdownToBio(action, remove = false) {
     const textarea = document.getElementById("bioInput");
 
     if (!textarea) {
@@ -121,16 +137,16 @@ function applyMarkdownToBio(action) {
 
     switch (action) {
         case "bold":
-            insertMarkdownSnippet(textarea, "**", "**", "bold text");
+            insertMarkdownSnippet(textarea, "**", "**", "", remove);
             break;
         case "italic":
-            insertMarkdownSnippet(textarea, "*", "*", "italic text");
+            insertMarkdownSnippet(textarea, "*", "*", "", remove);
             break;
         case "link":
-            insertMarkdownSnippet(textarea, "[", "](https://example.com)", "link text");
+            insertMarkdownSnippet(textarea, "[", "](https://example.com)", "", remove);
             break;
         case "code":
-            insertMarkdownSnippet(textarea, "`", "`", "code");
+            insertMarkdownSnippet(textarea, "`", "`", "", remove);
             break;
         default:
             break;
@@ -220,7 +236,307 @@ function renderTopicDetail(topics, topicSlug) {
     `;
 }
 
-function renderSubtopicDetail(topics, topicSlug, subtopicSlug) {
+async function renderTopicNetworkPage() {
+    const container = document.getElementById("coursecontainer");
+    if (!container) {
+        return;
+    }
+
+    container.innerHTML = `
+        <div class="topicnetworkpage">
+            <div class="network-map-wrapper" id="network-map-wrapper">
+                <div class="network-map-controls">
+                    <button type="button" id="network-exit-button" class="network-exit-button">Back to Topics</button>
+                    <button type="button" id="network-reset-button" class="network-reset-button">Reset view</button>
+                    <button type="button" id="network-collapse-button" class="network-collapse-button">Collapse all</button>
+                </div>
+                <div class="network-map" id="network-map"></div>
+            </div>
+        </div>
+    `;
+
+    const exitButton = document.getElementById("network-exit-button");
+    if (exitButton) {
+        exitButton.addEventListener("click", () => {
+            window.location.href = "/topics/";
+        });
+    }
+
+    try {
+        const apiUrl = (window.location.origin || '') + '/api/topics';
+        const response = await fetch(apiUrl);
+        if (!response.ok) {
+            throw new Error(`API error ${response.status} ${response.statusText}`);
+        }
+        const topics = await response.json();
+        console.log('Topic network: loaded', Array.isArray(topics) ? topics.length : 'unknown', 'topics');
+        initTopicNetworkMap(topics);
+    } catch (error) {
+        console.error('Failed to load topic network data:', error);
+        const map = document.getElementById('network-map');
+        if (map) {
+            map.innerHTML = `
+                <div class="network-map-instructions">
+                    <div>Unable to load topic data right now.</div>
+                    <div><small style="opacity:0.85">${escapeHtml(String(error && error.message))}</small></div>
+                    <div style="margin-top:12px"><button id="network-retry-button">Retry</button></div>
+                </div>
+            `;
+
+            const retry = document.getElementById('network-retry-button');
+            if (retry) {
+                retry.addEventListener('click', () => {
+                    retry.disabled = true;
+                    renderTopicNetworkPage();
+                });
+            }
+        }
+    }
+}
+
+function initTopicNetworkMap(topics = []) {
+    const wrapper = document.getElementById("network-map-wrapper");
+    const map = document.getElementById("network-map");
+    const resetButton = document.getElementById("network-reset-button");
+    const collapseButton = document.getElementById("network-collapse-button");
+
+    if (!wrapper || !map) {
+        return;
+    }
+
+    const centerX = 700;
+    const centerY = 450;
+    const outerRadius = 320;
+    const totalTopics = topics.length || 1;
+
+    const nodes = topics.map((topic, index) => {
+        const angle = (index / totalTopics) * Math.PI * 2;
+        const x = centerX + Math.cos(angle) * outerRadius;
+        const y = centerY + Math.sin(angle) * outerRadius;
+        const label = topic.topic + (topic.subtopics?.length ? ` (${topic.subtopics.length})` : '');
+        return { x, y, label };
+    });
+
+    if (!nodes.length) {
+        nodes.push({ x: centerX, y: centerY, label: 'No topics found' });
+    }
+
+    const selectedTopicIndexes = new Set();
+
+    const handleMapClick = (event) => {
+        let target = event.target;
+        if (!(target instanceof Element)) {
+            target = target?.parentElement;
+        }
+
+        const node = target?.closest(".network-node");
+
+        if (!node) {
+            return;
+        }
+
+        const type = node.dataset.type;
+        if (type === "topic") {
+            const index = Number(node.dataset.index);
+            if (!Number.isNaN(index)) {
+                if (selectedTopicIndexes.has(index)) {
+                    selectedTopicIndexes.delete(index);
+                } else {
+                    selectedTopicIndexes.add(index);
+                }
+                renderMap();
+            }
+        } else if (type === "subtopic") {
+            const topicSlug = node.dataset.topicSlug;
+            const subtopicSlug = node.dataset.subtopicSlug;
+            if (topicSlug && subtopicSlug) {
+                window.location.href = `/topics/${topicSlug}/${subtopicSlug}`;
+            }
+        }
+    };
+
+    // Attach click handler to wrapper so it receives events even when pointer capture is active
+    wrapper.addEventListener("click", (ev) => {
+        if (hasDragged) {
+            return;
+        }
+        handleMapClick(ev);
+    });
+    renderMap();
+
+    let scale = 1;
+    let originX = 0;
+    let originY = 0;
+    let isDragging = false;
+    let hasDragged = false;
+    let dragStartX = 0;
+    let dragStartY = 0;
+    let initialX = 0;
+    let initialY = 0;
+    const dragThreshold = 8;
+
+    function updateTransform() {
+        // Apply pan/zoom transform to the map element
+        if (!map) return;
+        map.style.transformOrigin = '0 0';
+        map.style.transform = `translate(${originX}px, ${originY}px) scale(${scale})`;
+    }
+
+    function getSubtopicLayout(parentNode, subtopics) {
+        const total = subtopics.length;
+        const baseRadius = 140;
+        const maxPerRing = 6;
+        const ringCount = Math.max(1, Math.ceil(total / maxPerRing));
+        const parentAngle = Math.atan2(parentNode.y - centerY, parentNode.x - centerX);
+        const layout = [];
+
+        let offset = 0;
+        for (let ring = 0; ring < ringCount; ring++) {
+            const remaining = total - offset;
+            const ringSize = Math.min(maxPerRing, remaining);
+            const radius = baseRadius + ring * 90 + (ringSize > 4 ? 10 : 0);
+            const arcWidth = Math.min(Math.PI * 1.9, Math.max(1.1, 0.35 * ringSize + 0.4));
+            const step = ringSize > 1 ? arcWidth / (ringSize - 1) : 0;
+            const startAngle = parentAngle - arcWidth / 2 + (ring % 2 === 1 ? step / 2 : 0);
+
+            for (let idx = 0; idx < ringSize; idx++) {
+                const angle = ringSize > 1 ? startAngle + idx * step : parentAngle + (ring % 2 === 1 ? 0.15 : -0.15);
+                const x = parentNode.x + Math.cos(angle) * radius;
+                const y = parentNode.y + Math.sin(angle) * radius;
+                layout.push({ sub: subtopics[offset + idx], x, y });
+            }
+
+            offset += ringSize;
+        }
+
+        return layout;
+    }
+
+    function renderMap() {
+        const topicLines = nodes.flatMap((start, i) => {
+            return nodes.slice(i + 1).map((end) => `
+                <line x1="${start.x}" y1="${start.y}" x2="${end.x}" y2="${end.y}" />
+            `);
+        }).join("");
+
+        const expandedSubtopicData = Array.from(selectedTopicIndexes).flatMap((index) => {
+            const topic = topics[index];
+            const parentNode = nodes[index] || { x: centerX, y: centerY };
+            const layout = getSubtopicLayout(parentNode, topic?.subtopics || []);
+            return layout.map(({ sub, x, y }) => ({
+                line: `<line x1="${parentNode.x}" y1="${parentNode.y}" x2="${x}" y2="${y}" />`,
+                markup: `<button type="button" class="network-node subtopic" data-type="subtopic" data-topic-slug="${encodeURIComponent(slugify(topic.topic))}" data-subtopic-slug="${encodeURIComponent(slugify(sub.name))}" style="left: ${x}px; top: ${y}px;">${escapeHtml(sub.name)}</button>`
+            }));
+        });
+
+        const lines = `${topicLines}${expandedSubtopicData.map((item) => item.line).join("")}`;
+
+        const nodeMarkup = nodes.map((node, index) => `
+            <button type="button" class="network-node topic${selectedTopicIndexes.has(index) ? ' selected' : ''}" data-type="topic" data-index="${index}" style="left: ${node.x}px; top: ${node.y}px;">${escapeHtml(node.label)}</button>
+        `).join("");
+
+        const subtopicMarkup = expandedSubtopicData.map((item) => item.markup).join("");
+
+        map.innerHTML = `
+            <svg class="network-lines" viewBox="0 0 1400 900" preserveAspectRatio="xMinYMin meet">
+                ${lines}
+            </svg>
+            ${nodeMarkup}
+            ${subtopicMarkup}
+        `;
+    }
+
+    wrapper.addEventListener("pointerdown", (event) => {
+        if (event.button !== 0) {
+            return;
+        }
+
+        const path = event.composedPath ? event.composedPath() : [];
+        const isControlTarget = path.some((node) => {
+            return node instanceof Element && (node.matches && node.matches("button, a, input, textarea, select") || node.closest && (node.closest(".network-map-controls") || node.closest(".network-map-instructions")));
+        });
+
+        if (isControlTarget) {
+            return;
+        }
+
+        event.preventDefault();
+        isDragging = true;
+        dragStartX = event.clientX;
+        dragStartY = event.clientY;
+        initialX = originX;
+        initialY = originY;
+        wrapper.setPointerCapture(event.pointerId);
+    });
+
+    wrapper.addEventListener("pointermove", (event) => {
+        if (!isDragging) {
+            return;
+        }
+
+        event.preventDefault();
+        const dx = event.clientX - dragStartX;
+        const dy = event.clientY - dragStartY;
+        if (!hasDragged && Math.hypot(dx, dy) > dragThreshold) {
+            hasDragged = true;
+        }
+
+        originX = initialX + dx;
+        originY = initialY + dy;
+        updateTransform();
+    });
+
+    const endDrag = () => {
+        isDragging = false;
+        setTimeout(() => {
+            hasDragged = false;
+        }, 0);
+    };
+
+    wrapper.addEventListener("pointerup", endDrag);
+    wrapper.addEventListener("pointerleave", endDrag);
+    wrapper.addEventListener("pointercancel", endDrag);
+
+    wrapper.addEventListener("selectstart", (event) => {
+        if (isDragging) {
+            event.preventDefault();
+        }
+    });
+
+    resetButton?.addEventListener("click", () => {
+        scale = 1;
+        originX = 0;
+        originY = 0;
+        updateTransform();
+    });
+
+    collapseButton?.addEventListener("click", () => {
+        selectedTopicIndexes.clear();
+        renderMap();
+    });
+
+    wrapper.addEventListener("wheel", (event) => {
+        event.preventDefault();
+        const rect = wrapper.getBoundingClientRect();
+        const pointerX = event.clientX - rect.left;
+        const pointerY = event.clientY - rect.top;
+        const beforeX = (pointerX - originX) / scale;
+        const beforeY = (pointerY - originY) / scale;
+
+        const zoomFactor = event.deltaY > 0 ? 1 / 1.08 : 1.08;
+        const nextScale = Math.min(3, Math.max(0.5, scale * zoomFactor));
+        const scaleRatio = nextScale / scale;
+        scale = nextScale;
+
+        originX = pointerX - beforeX * scale;
+        originY = pointerY - beforeY * scale;
+        updateTransform();
+    }, { passive: false });
+
+    updateTransform();
+}
+
+async function renderSubtopicDetail(topics, topicSlug, subtopicSlug) {
     const container = document.getElementById("coursecontainer");
 
     if (!container) {
@@ -255,17 +571,128 @@ function renderSubtopicDetail(topics, topicSlug, subtopicSlug) {
     const tagarray = selectedSubtopic.tags ? selectedSubtopic.tags.split(', ') : [];
     const tagshtml = tagarray.map(tag => `<span class="tag">(${tag})</span>`).join(' ');
 
-    container.innerHTML = `
-        <div class="topicdetail">
-            <a class="topicdetailback" href="/topics/${encodeURIComponent(topicSlug)}">Back to ${selectedTopic.topic}</a>
-            <p class="topicdetaileyebrow">${selectedTopic.topic}</p>
-            <h1 class="topicdetailtitle">${selectedSubtopic.name}</h1>
-            <p class="topicdetailtext">${tagshtml}</p>
-            <div class="topicdetailpanel">
-                <p class="topicdetailtext">This is the dynamic page for the selected subtopic. You can expand this view later with problem sets, explanations, or progress tracking.</p>
+    try {
+        const response = await fetch(`/api/problem-sets?topic=${encodeURIComponent(selectedTopic.topic)}&subtopic=${encodeURIComponent(selectedSubtopic.name)}`);
+        const problemSets = await response.json();
+        const problemSetMarkup = problemSets.length
+            ? `
+                <div class="problemsetgrid">
+                    ${problemSets.map((problemSet) => `
+                        <article class="problemsetcard">
+                            <p class="problemsetid">Problem Set ID #${escapeHtml(problemSet.id)}</p>
+                            <h2>${escapeHtml(problemSet.name)}</h2>
+                            <p>${escapeHtml(problemSet.description || "No description available yet.")}</p>
+                            <div class="problemsettags">
+                                ${(problemSet.tags || []).map((tag) => `<span class="problemsettag">${escapeHtml(tag)}</span>`).join('')}
+                            </div>
+                        </article>
+                    `).join('')}
+                </div>
+            `
+            : '<div class="problemsetempty"><p>No problem sets have been assigned to this subtopic yet.</p></div>';
+
+        container.innerHTML = `
+            <div class="topicdetail">
+                <a class="topicdetailback" href="/topics/${encodeURIComponent(topicSlug)}">Back to ${selectedTopic.topic}</a>
+                <div class="topicdetailpanel">
+                    <div class="topicdetailsectionheader">
+                        <h2>${selectedSubtopic.name}</h2>
+                        <span class="topicdetailitemmeta">${tagshtml}</span>
+                    </div>
+                    <div class="topicdetailsection">
+                        <h3 class="topicdetailitemtitle">Problem sets</h3>
+                        ${problemSetMarkup}
+                    </div>
+                </div>
             </div>
+        `;
+    } catch (error) {
+        console.error("Failed to load problem sets for subtopic:", error);
+        container.innerHTML = `
+            <div class="topicdetail">
+                <a class="topicdetailback" href="/topics/${encodeURIComponent(topicSlug)}">Back to ${selectedTopic.topic}</a>
+                <div class="topicdetailpanel">
+                    <div class="topicdetailsectionheader">
+                        <h2>${selectedSubtopic.name}</h2>
+                        <span class="topicdetailitemmeta">${tagshtml}</span>
+                    </div>
+                    <div class="topicdetailsection">
+                        <h3 class="topicdetailitemtitle">Problem sets</h3>
+                        <div class="problemsetempty"><p>Unable to load problem sets for this subtopic right now.</p></div>
+                    </div>
+                </div>
+            </div>
+        `;
+    }
+}
+
+function renderProblemSetResults(problemSets, searchTerm = "") {
+    const container = document.getElementById("problem-set-results");
+
+    if (!container) {
+        return;
+    }
+
+    if (!problemSets.length) {
+        container.innerHTML = `
+            <div class="problemsetempty">
+                <h2>No problem sets available yet</h2>
+                <p>${searchTerm ? `No matches found for “${escapeHtml(searchTerm)}”.` : "New problem-set collections will appear here once they are added to the database."}</p>
+            </div>
+        `;
+        return;
+    }
+
+    container.innerHTML = `
+        <div class="problemsetgrid">
+            ${problemSets.map((problemSet) => `
+                <article class="problemsetcard">
+                    <p class="problemsetid">Problem Set ID #${escapeHtml(problemSet.id)}</p>
+                    <h2>${escapeHtml(problemSet.name)}</h2>
+                    <p>${escapeHtml(problemSet.description || "No description available yet.")}</p>
+                    <p class="problemsetmeta">${escapeHtml([problemSet.topic, problemSet.subtopic].filter(Boolean).join(" / ") || "Topic not assigned")}</p>
+                    <div class="problemsettags">
+                        ${(problemSet.tags || []).map((tag) => `<span class="problemsettag">${escapeHtml(tag)}</span>`).join('')}
+                    </div>
+                </article>
+            `).join('')}
         </div>
     `;
+}
+
+async function loadProblemSets(searchTerm = "") {
+    const container = document.getElementById("problem-set-results");
+
+    if (!container) {
+        return;
+    }
+
+    container.innerHTML = '<div class="problemsetempty"><p>Loading problem sets...</p></div>';
+
+    try {
+        const response = await fetch(`/api/problem-sets?search=${encodeURIComponent(searchTerm)}`);
+        const problemSets = await response.json();
+        renderProblemSetResults(problemSets, searchTerm);
+    } catch (error) {
+        console.error("Failed to load problem sets:", error);
+        container.innerHTML = '<div class="problemsetempty"><p>Unable to load problem sets right now.</p></div>';
+    }
+}
+
+function initProblemSetSearch() {
+    const form = document.getElementById("problem-set-search-form");
+    const input = document.getElementById("problem-set-search");
+
+    if (!form || !input) {
+        return;
+    }
+
+    form.addEventListener("submit", (event) => {
+        event.preventDefault();
+        loadProblemSets(input.value.trim());
+    });
+
+    loadProblemSets("");
 }
 
 async function renderProfilePage() {
@@ -379,6 +806,10 @@ async function renderProfilePage() {
 
         markdownButtons.forEach((button) => {
             button.addEventListener("click", () => applyMarkdownToBio(button.dataset.markdown));
+            button.addEventListener("dblclick", (event) => {
+                event.preventDefault();
+                applyMarkdownToBio(button.dataset.markdown, true);
+            });
         });
 
         if (profileSettingsForm && bioInput && publicEmailToggle) {
@@ -509,10 +940,13 @@ if (toggle) {
     });
 }
 
+const prefersDarkScheme = typeof window.matchMedia === 'function'
+    ? window.matchMedia("(prefers-color-scheme: dark)").matches
+    : false;
+
 if (
     localStorage.getItem("theme") === "dark" ||
-    (!localStorage.getItem("theme") &&
-     window.matchMedia("(prefers-color-scheme: dark)").matches)
+    (!localStorage.getItem("theme") && prefersDarkScheme)
 ) {
     document.body.classList.add("dark");
     const toggle = document.getElementById("themetoggler");
@@ -538,7 +972,7 @@ async function courseLoad() {
         const route = getTopicRoute();
 
         if (route.view === "subtopic") {
-            renderSubtopicDetail(topics, route.topicSlug, route.subtopicSlug);
+            await renderSubtopicDetail(topics, route.topicSlug, route.subtopicSlug);
             return;
         }
 
@@ -553,28 +987,237 @@ async function courseLoad() {
     }
 }
 
+async function updateProblemSetCount() {
+    try {
+        const response = await fetch('/api/problem-sets/count');
+        const data = await response.json();
+        const problemsLink = document.querySelector('#problems-count-link .boxtitle');
+
+        if (problemsLink && typeof data.count === 'number') {
+            problemsLink.textContent = `${data.count} Problem Set${data.count === 1 ? '' : 's'}`;
+        }
+    } catch (error) {
+        console.error('Failed to fetch problem set count:', error);
+    }
+}
+
+async function updateTopicCount() {
+    try {
+        const response = await fetch('/api/topics/count');
+        const data = await response.json();
+        const topicsLink = document.querySelector('#topics-count-link .boxtitle');
+
+        if (topicsLink && typeof data.count === 'number') {
+            topicsLink.textContent = `${data.count} Topic${data.count === 1 ? '' : 's'}`;
+        }
+    } catch (error) {
+        console.error('Failed to fetch topic count:', error);
+    }
+}
+
 function checkUserStatus() {
     const userStatus = localStorage.getItem("currentUser");
-    if(!userStatus) return;
+    if (!userStatus) return;
 
     try {
         const parsed = JSON.parse(userStatus);
         const user = parsed.user || parsed;
-        const tablist = document.querySelector(".tablist");
+        const loginLinks = document.querySelectorAll("a[href='/login/']");
 
-        if (tablist) {
-            const loginLink = tablist.querySelector("a[href='/login/']");
-            if (loginLink) {
-                const loginListItem = loginLink.parentElement;
-                loginListItem.innerHTML = `
-                    <a class="profilemenulink" href="/profile/${encodeURIComponent(user.username)}">Profile</a>
+        loginLinks.forEach((link) => {
+            const listItem = link.parentElement;
+            const displayName = escapeHtml(user.username || "Profile");
+
+            if (listItem && listItem.parentElement && listItem.parentElement.classList.contains("tablist")) {
+                listItem.innerHTML = `
+                    <a class="profilemenulink" href="/profile/${encodeURIComponent(user.username)}">${displayName}</a>
                 `;
+                return;
             }
-        }
 
+            link.textContent = displayName;
+            link.href = `/profile/${encodeURIComponent(user.username)}`;
+            link.classList.remove("login");
+            link.classList.add("profilemenulink");
+        });
     } catch (error) {
         console.error("Error checking user status:", error);
     }
+}
+
+async function submitProblemSetSuggestion(event) {
+    if (event) {
+        event.preventDefault();
+    }
+
+    const statusElement = document.getElementById("suggestion-status");
+    const form = document.getElementById("suggest-problem-set-form");
+    if (!form || !statusElement) {
+        return;
+    }
+
+    statusElement.textContent = "Submitting suggestion...";
+
+    const problems = serializeProblemItems();
+    if (!problems.length) {
+        statusElement.textContent = "Please add at least one problem.";
+        return;
+    }
+
+    const payload = {
+        name: document.getElementById("suggest-name").value.trim(),
+        topic: document.getElementById("suggest-topic").value.trim(),
+        subtopic: document.getElementById("suggest-subtopic").value.trim(),
+        tags: document.getElementById("suggest-tags").value.trim(),
+        description: document.getElementById("suggest-description").value.trim(),
+        problems: JSON.stringify(problems),
+        submitter: null
+    };
+
+    const currentUserRaw = localStorage.getItem("currentUser");
+    if (currentUserRaw) {
+        try {
+            const parsed = JSON.parse(currentUserRaw);
+            const user = parsed.user || parsed;
+            payload.submitter = user.username || null;
+        } catch (error) {
+            // ignore malformed user data
+        }
+    }
+
+    if (!payload.name || !payload.topic || !payload.subtopic || !problems.length) {
+        statusElement.textContent = "Please complete all required fields.";
+        return;
+    }
+
+    try {
+        const response = await fetch("/api/problem-set-suggestions", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload)
+        });
+        const data = await response.json();
+
+        if (!response.ok) {
+            statusElement.textContent = data.message || "Unable to submit your suggestion.";
+            return;
+        }
+
+        statusElement.textContent = data.message || "Suggestion received. Thank you!";
+        form.reset();
+    } catch (error) {
+        console.error("Failed to submit suggestion:", error);
+        statusElement.textContent = "Unable to submit your suggestion right now.";
+    }
+}
+
+function serializeProblemItems() {
+    const items = Array.from(document.querySelectorAll('.problem-item'));
+    return items.map((item) => {
+        const prompt = item.querySelector('.problem-prompt').value.trim();
+        const type = item.querySelector('.problem-type').value;
+        const answer = item.querySelector('.problem-answer').value.trim();
+        const choices = type === 'multiple_choice'
+            ? Array.from(item.querySelectorAll('.choice-input')).map(choice => choice.value.trim()).filter(Boolean)
+            : [];
+
+        return { prompt, type, choices, answer };
+    }).filter(problem => problem.prompt && problem.type && problem.answer && (problem.type !== 'multiple_choice' || problem.choices.length > 0));
+}
+
+function removeProblemItem(button) {
+    const item = button.closest('.problem-item');
+    if (item) {
+        item.remove();
+    }
+}
+
+function updateProblemItemTypeFields(item) {
+    const type = item.querySelector('.problem-type').value;
+    const choiceLabel = item.querySelector('.problem-choice-label');
+    const choiceList = item.querySelector('.problem-choice-list');
+    const answerLabel = item.querySelector('.problem-answer-label');
+    const answerInput = item.querySelector('.problem-answer');
+    const choiceInputs = Array.from(item.querySelectorAll('.choice-input'));
+
+    if (type === 'free_response') {
+        if (choiceLabel) {
+            choiceLabel.textContent = 'Acceptable Answers';
+        }
+        if (choiceList) {
+            choiceList.style.display = 'none';
+        }
+        choiceInputs.forEach(input => {
+            input.required = false;
+        });
+        if (answerLabel) {
+            answerLabel.style.display = 'None';
+        }
+        if (answerInput) {
+            answerInput.placeholder = 'Enter acceptable answers separated by commas:';
+        }
+    } else {
+        if (choiceLabel) {
+            choiceLabel.textContent = 'Answer Choices';
+        }
+        if (choiceList) {
+            choiceList.style.display = '';
+        }
+        choiceInputs.forEach(input => {
+            input.required = true;
+        });
+        if (answerLabel) {
+            answerLabel.style.display = '';
+            answerLabel.textContent = 'Correct Answer';
+        }
+        if (answerInput) {
+            answerInput.placeholder = 'Enter the correct choice:';
+        }
+    }
+}
+
+function addProblemItem() {
+    const container = document.getElementById('problem-items');
+    if (!container) {
+        return;
+    }
+
+    const problemIndex = container.children.length + 1;
+    const template = document.createElement('div');
+    template.className = 'problem-item';
+    template.innerHTML = `
+        <div class="problem-item-header">
+            <span class="aboutustitle">Problem ${problemIndex}</span>
+            <button type="button" class="authsubmit remove-problem-button">Remove</button>
+        </div>
+        <label class="aboutustitle">Problem Type</label>
+        <select class="inputs problem-type">
+            <option value="multiple_choice">Multiple Choice</option>
+            <option value="free_response">Free Response</option>
+        </select>
+        <label class="aboutustitle">Prompt</label>
+        <textarea class="inputs problem-prompt" rows="4" placeholder="Enter here:" required></textarea>
+        <label class="aboutustitle problem-choice-label">Answer Choices</label>
+        <div class="problem-choice-list">
+            <input class="inputs choice-input" type="text" placeholder="Choice A" required>
+            <input class="inputs choice-input" type="text" placeholder="Choice B" required>
+            <input class="inputs choice-input" type="text" placeholder="Choice C" required>
+            <input class="inputs choice-input" type="text" placeholder="Choice D" required>
+        </div>
+        <label class="aboutustitle problem-answer-label">Correct Answer</label>
+        <input class="inputs problem-answer" type="text" placeholder="Enter the correct choice:" required>
+    `;
+
+    container.appendChild(template);
+    const removeButton = template.querySelector('.remove-problem-button');
+    removeButton.addEventListener('click', () => removeProblemItem(removeButton));
+
+    const typeSelect = template.querySelector('.problem-type');
+    if (typeSelect) {
+        typeSelect.addEventListener('change', () => updateProblemItemTypeFields(template));
+    }
+
+    updateProblemItemTypeFields(template);
 }
 
 function initUserSearch() {
@@ -600,12 +1243,33 @@ function initUserSearch() {
 document.addEventListener("DOMContentLoaded", () => {
     checkUserStatus();
     initUserSearch();
+
     const profileRoute = getProfileRoute();
+    const isProblemsRoute = window.location.pathname.startsWith("/problems");
 
     if (profileRoute.view === "profile") {
         renderProfilePage();
+    } else if (window.location.pathname.startsWith("/contribute")) {
+        const suggestForm = document.getElementById("suggest-problem-set-form");
+        const addProblemButton = document.getElementById("add-problem-button");
+
+        if (suggestForm) {
+            suggestForm.addEventListener("submit", submitProblemSetSuggestion);
+        }
+
+        if (addProblemButton) {
+            addProblemButton.addEventListener("click", addProblemItem);
+        }
+
+        addProblemItem();
+    } else if (window.location.pathname.startsWith("/topics/network")) {
+        renderTopicNetworkPage();
+    } else if (isProblemsRoute) {
+        initProblemSetSearch();
     } else {
         courseLoad();
+        updateProblemSetCount();
+        updateTopicCount();
     }
     pingServer();
 });

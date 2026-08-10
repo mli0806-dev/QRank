@@ -52,9 +52,20 @@ async function ensurePasswordResetTable() {
             used_at DATETIME DEFAULT NULL,
             created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
             INDEX idx_password_reset_user_id (user_id),
-            INDEX idx_password_reset_email (email)
+            INDEX idx_password_reset_email (email),
+            INDEX idx_password_reset_expires_at (expires_at)
         )
     `);
+}
+
+async function deleteExpiredPasswordResetCodes() {
+    const [result] = await db.query(
+        "DELETE FROM password_reset_codes WHERE expires_at <= NOW()"
+    );
+
+    if (result && result.affectedRows > 0) {
+        console.log(`Removed ${result.affectedRows} expired password reset code(s).`);
+    }
 }
 
 async function ensureGoogleAuthColumns() {
@@ -117,6 +128,74 @@ async function ensureProfileVisibilityColumns() {
     }
 }
 
+async function ensureProblemSetsTable() {
+    await db.query(`
+        CREATE TABLE IF NOT EXISTS problem_sets (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            name VARCHAR(255) NOT NULL,
+            description TEXT DEFAULT NULL,
+            topic VARCHAR(255) DEFAULT NULL,
+            subtopic VARCHAR(255) DEFAULT NULL,
+            tags VARCHAR(255) DEFAULT NULL,
+            created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            INDEX idx_problem_sets_name (name),
+            INDEX idx_problem_sets_topic (topic),
+            INDEX idx_problem_sets_subtopic (subtopic),
+            INDEX idx_problem_sets_tags (tags)
+        )
+    `);
+
+    const [topicColumns] = await db.query(
+        `
+        SELECT COUNT(*) AS column_count
+        FROM INFORMATION_SCHEMA.COLUMNS
+        WHERE TABLE_SCHEMA = DATABASE()
+          AND TABLE_NAME = 'problem_sets'
+          AND COLUMN_NAME = 'topic'
+        `
+    );
+
+    if (topicColumns[0].column_count === 0) {
+        await db.query("ALTER TABLE problem_sets ADD COLUMN topic VARCHAR(255) DEFAULT NULL");
+    }
+
+    const [subtopicColumns] = await db.query(
+        `
+        SELECT COUNT(*) AS column_count
+        FROM INFORMATION_SCHEMA.COLUMNS
+        WHERE TABLE_SCHEMA = DATABASE()
+          AND TABLE_NAME = 'problem_sets'
+          AND COLUMN_NAME = 'subtopic'
+        `
+    );
+
+    if (subtopicColumns[0].column_count === 0) {
+        await db.query("ALTER TABLE problem_sets ADD COLUMN subtopic VARCHAR(255) DEFAULT NULL");
+    }
+}
+
+async function ensureProblemSuggestionTable() {
+    await db.query(`
+        CREATE TABLE IF NOT EXISTS problem_set_suggestions (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            name VARCHAR(255) NOT NULL,
+            description TEXT DEFAULT NULL,
+            topic VARCHAR(255) DEFAULT NULL,
+            subtopic VARCHAR(255) DEFAULT NULL,
+            tags VARCHAR(255) DEFAULT NULL,
+            problems TEXT NOT NULL,
+            submitter VARCHAR(255) DEFAULT NULL,
+            status ENUM('pending', 'reviewed', 'approved', 'rejected') NOT NULL DEFAULT 'pending',
+            created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            INDEX idx_suggestions_topic (topic),
+            INDEX idx_suggestions_subtopic (subtopic),
+            INDEX idx_suggestions_status (status)
+        )
+    `);
+}
+
 async function sendPasswordResetEmail(email, username, code) {
     if (!mailer) {
         throw new Error("SMTP is not configured.");
@@ -155,6 +234,51 @@ app.get("/api/status", (req, res) => {
     });
 });
 
+app.get("/api/problem-sets/count", async (req, res) => {
+    try {
+        const [rows] = await db.query("SELECT COUNT(*) AS count FROM problem_sets");
+        res.json({ count: rows[0]?.count || 0 });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ message: "Failed to fetch problem set count." });
+    }
+});
+
+app.post("/api/problem-set-suggestions", async (req, res) => {
+    try {
+        const { name, description, topic, subtopic, tags, problems, submitter } = req.body || {};
+
+        if (!name || !topic || !subtopic || !problems) {
+            return res.status(400).json({ message: "Name, topic, subtopic, and problems are required." });
+        }
+
+        const cleanName = String(name).trim();
+        const cleanDescription = String(description || "").trim();
+        const cleanTopic = String(topic).trim();
+        const cleanSubtopic = String(subtopic).trim();
+        const cleanTags = String(tags || "")
+            .split(',')
+            .map(tag => tag.trim())
+            .filter(Boolean)
+            .join(',');
+        const cleanProblems = String(problems).trim();
+        const cleanSubmitter = submitter ? String(submitter).trim() : null;
+
+        const [result] = await db.query(
+            "INSERT INTO problem_set_suggestions (name, description, topic, subtopic, tags, problems, submitter) VALUES (?, ?, ?, ?, ?, ?, ?)",
+            [cleanName, cleanDescription, cleanTopic, cleanSubtopic, cleanTags, cleanProblems, cleanSubmitter]
+        );
+
+        res.status(201).json({
+            message: "Your suggestion has been received and is pending review.",
+            suggestionId: result.insertId
+        });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ message: "Failed to submit suggestion." });
+    }
+});
+
 app.get("/topics", sendTopicsPage);
 app.get("/topics/", sendTopicsPage);
 app.get("/topics/:topicSlug", sendTopicsPage);
@@ -174,12 +298,124 @@ ensurePasswordResetTable().catch(err => {
     console.error("Failed to ensure password_reset_codes table exists:", err);
 });
 
+deleteExpiredPasswordResetCodes().catch(err => {
+    console.error("Failed to clean up expired password reset codes:", err);
+});
+
+setInterval(() => {
+    deleteExpiredPasswordResetCodes().catch(err => {
+        console.error("Failed to clean up expired password reset codes:", err);
+    });
+}, 60 * 1000);
+
 ensureGoogleAuthColumns().catch(err => {
     console.error("Failed to ensure Google auth columns exist:", err);
 });
 
 ensureProfileVisibilityColumns().catch(err => {
     console.error("Failed to ensure profile visibility columns exist:", err);
+});
+
+ensureProblemSetsTable().catch(err => {
+    console.error("Failed to ensure problem_sets table exists:", err);
+});
+
+ensureProblemSuggestionTable().catch(err => {
+    console.error("Failed to ensure problem_set_suggestions table exists:", err);
+});
+
+app.get("/api/problem-sets", async (req, res) => {
+    try {
+        const searchTerm = String(req.query.search || "").trim();
+        const topicFilter = String(req.query.topic || "").trim();
+        const subtopicFilter = String(req.query.subtopic || "").trim();
+        const conditions = [];
+        const params = [];
+
+        if (searchTerm) {
+            conditions.push(`(
+                LOWER(COALESCE(name, '')) LIKE ?
+                OR LOWER(COALESCE(description, '')) LIKE ?
+                OR LOWER(COALESCE(tags, '')) LIKE ?
+            )`);
+            const likeTerm = `%${searchTerm.toLowerCase()}%`;
+            params.push(likeTerm, likeTerm, likeTerm);
+        }
+
+        if (topicFilter) {
+            conditions.push("LOWER(COALESCE(topic, '')) = ?");
+            params.push(topicFilter.toLowerCase());
+        }
+
+        if (subtopicFilter) {
+            conditions.push("LOWER(COALESCE(subtopic, '')) = ?");
+            params.push(subtopicFilter.toLowerCase());
+        }
+
+        let query = `
+            SELECT id, name, description, topic, subtopic, tags
+            FROM problem_sets
+        `;
+
+        if (conditions.length > 0) {
+            query += ` WHERE ${conditions.join(" AND ")}`;
+        }
+
+        query += ` ORDER BY name ASC`;
+
+        const [rows] = await db.query(query, params);
+        const normalizedRows = rows.map(row => ({
+            ...row,
+            tags: row.tags
+                ? row.tags.split(',').map(tag => tag.trim()).filter(Boolean)
+                : []
+        }));
+
+        res.json(normalizedRows);
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ message: "Problem set lookup failed." });
+    }
+});
+
+app.post("/api/problem-sets", async (req, res) => {
+    try {
+        const { name, description, topic, subtopic, tags } = req.body || {};
+
+        if (!name || !topic || !subtopic) {
+            return res.status(400).json({ message: "Name, topic, and subtopic are required." });
+        }
+
+        const cleanName = String(name).trim();
+        const cleanDescription = String(description || "").trim();
+        const cleanTopic = String(topic).trim();
+        const cleanSubtopic = String(subtopic).trim();
+        const cleanTags = String(tags || "")
+            .split(',')
+            .map(tag => tag.trim())
+            .filter(Boolean)
+            .join(',');
+
+        const [result] = await db.query(
+            "INSERT INTO problem_sets (name, description, topic, subtopic, tags) VALUES (?, ?, ?, ?, ?)",
+            [cleanName, cleanDescription, cleanTopic, cleanSubtopic, cleanTags]
+        );
+
+        res.status(201).json({
+            message: "Problem set created successfully.",
+            problemSet: {
+                id: result.insertId,
+                name: cleanName,
+                description: cleanDescription,
+                topic: cleanTopic,
+                subtopic: cleanSubtopic,
+                tags: cleanTags
+            }
+        });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ message: "Problem set creation failed." });
+    }
 });
 
 app.get("/api/topics", async (req, res) => {
@@ -214,6 +450,16 @@ app.get("/api/topics", async (req, res) => {
     } catch (err) {
         console.error(err);
         res.status(500).json({message: "Database query failed."})
+    }
+});
+
+app.get("/api/topics/count", async (req, res) => {
+    try {
+        const [rows] = await db.query("SELECT COUNT(*) AS count FROM topics");
+        res.json({ count: rows[0]?.count || 0 });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ message: "Failed to fetch topic count." });
     }
 });
 
@@ -314,6 +560,8 @@ app.post("/api/password-reset/request", async (req, res) => {
         const code = generateVerificationCode();
         const codeHash = await bcrypt.hash(code, 10);
         const expiresAt = new Date(Date.now() + resetCodeTtlMinutes * 60 * 1000);
+
+        await deleteExpiredPasswordResetCodes();
 
         await db.query(
             "DELETE FROM password_reset_codes WHERE user_id = ? AND used_at IS NULL",
