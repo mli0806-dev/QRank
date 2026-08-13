@@ -71,6 +71,19 @@ function getProfileRoute() {
     return { view: "none" };
 }
 
+let currentUserPromise = null;
+
+function getCurrentUser() {
+    if (!currentUserPromise) {
+        currentUserPromise = fetch("/api/auth/me")
+            .then(response => (response.ok ? response.json() : null))
+            .then(data => data?.user || null)
+            .catch(() => null);
+    }
+
+    return currentUserPromise;
+}
+
 function escapeHtml(value) {
     return String(value ?? "")
         .replace(/&/g, "&amp;")
@@ -715,19 +728,8 @@ async function renderProfilePage() {
     }
 
     try {
-        const currentUserRaw = localStorage.getItem("currentUser");
-        let currentUser = null;
-
-        if (currentUserRaw) {
-            try {
-                currentUser = JSON.parse(currentUserRaw);
-            } catch (error) {
-                currentUser = null;
-            }
-        }
-
-        const viewerUsername = currentUser?.username || null;
-        const response = await fetch(`/api/users/${encodeURIComponent(route.usernameSlug)}${viewerUsername ? `?viewerUsername=${encodeURIComponent(viewerUsername)}` : ""}`);
+        const currentUser = await getCurrentUser();
+        const response = await fetch(`/api/users/${encodeURIComponent(route.usernameSlug)}`);
         const data = await response.json();
 
         if (!response.ok) {
@@ -821,7 +823,6 @@ async function renderProfilePage() {
                         method: "PUT",
                         headers: { "Content-Type": "application/json" },
                         body: JSON.stringify({
-                            viewerUsername: currentUser?.username,
                             bio: bioInput.value,
                             publicEmail: publicEmailToggle.checked
                         })
@@ -896,7 +897,6 @@ async function renderProfilePage() {
                         return;
                     }
 
-                    localStorage.removeItem("currentUser");
                     window.location.href = "/login/";
                 } catch (error) {
                     console.error("Failed to update password:", error);
@@ -906,8 +906,12 @@ async function renderProfilePage() {
         }
 
         if (logoutButton) {
-            logoutButton.addEventListener("click", () => {
-                localStorage.removeItem("currentUser");
+            logoutButton.addEventListener("click", async () => {
+                try {
+                    await fetch("/api/logout", { method: "POST" });
+                } catch (error) {
+                    console.error("Logout request failed:", error);
+                }
                 window.location.href = "/login/";
             });
         }
@@ -1015,13 +1019,11 @@ async function updateTopicCount() {
     }
 }
 
-function checkUserStatus() {
-    const userStatus = localStorage.getItem("currentUser");
-    if (!userStatus) return;
-
+async function checkUserStatus() {
     try {
-        const parsed = JSON.parse(userStatus);
-        const user = parsed.user || parsed;
+        const user = await getCurrentUser();
+        if (!user) return;
+
         const loginLinks = document.querySelectorAll("a[href='/login/']");
 
         loginLinks.forEach((link) => {
@@ -1074,15 +1076,9 @@ async function submitProblemSetSuggestion(event) {
         submitter: null
     };
 
-    const currentUserRaw = localStorage.getItem("currentUser");
-    if (currentUserRaw) {
-        try {
-            const parsed = JSON.parse(currentUserRaw);
-            const user = parsed.user || parsed;
-            payload.submitter = user.username || null;
-        } catch (error) {
-            // ignore malformed user data
-        }
+    const currentUser = await getCurrentUser();
+    if (currentUser) {
+        payload.submitter = currentUser.username || null;
     }
 
     if (!payload.name || !payload.topic || !payload.subtopic || !problems.length) {

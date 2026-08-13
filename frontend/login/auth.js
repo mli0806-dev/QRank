@@ -33,9 +33,8 @@ document.addEventListener("DOMContentLoaded", () => {
                     errorDiv.textContent = data.error || data.message || "Login failed.";
                     errorDiv.style.display = "block";
                 } else {
-                    localStorage.setItem("currentUser", JSON.stringify(data.user));
                     loginForm.reset();
-                    window.location.href = "/"; 
+                    window.location.href = "/";
                 }
             } catch (error) {
                 console.error("Login error:", error);
@@ -115,7 +114,6 @@ document.addEventListener("DOMContentLoaded", () => {
             return;
         }
 
-        localStorage.setItem("currentUser", JSON.stringify(loginData.user));
         window.location.href = "/";
     }
 
