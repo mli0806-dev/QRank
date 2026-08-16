@@ -100,7 +100,11 @@ function renderMarkdown(value) {
         .replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")
         .replace(/\*(.+?)\*/g, "<em>$1</em>")
         .replace(/`(.+?)`/g, "<code>$1</code>")
-        .replace(/\[(.+?)\]\((.+?)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer">$1</a>');
+        .replace(/\[(.+?)\]\((.+?)\)/g, (match, text, url) => {
+            return /^(https?:|mailto:)/i.test(url.trim())
+                ? `<a href="${url}" target="_blank" rel="noopener noreferrer">${text}</a>`
+                : match;
+        });
 
     return withParagraphs || "No bio yet.";
 }
@@ -177,12 +181,12 @@ function renderTopicIndex(topics) {
         const subtopicshtml = topic.subtopics.map(subtopic => {
             const tagarray = subtopic.tags ? subtopic.tags.split(', ') : [];
             const tagshtml = tagarray.map(tag => `
-                    <span class="tag">(${tag})</span>
+                    <span class="tag">(${escapeHtml(tag)})</span>
                 `).join(' ');
 
             return `
                 <a href="/topics/${encodeURIComponent(slugify(topic.topic))}/${encodeURIComponent(slugify(subtopic.name))}">
-                    ${subtopic.name} ${tagshtml}
+                    ${escapeHtml(subtopic.name)} ${tagshtml}
                 </a>
             `;
         }).join(' ');
@@ -192,10 +196,10 @@ function renderTopicIndex(topics) {
                 <div class="topicheader">
                     <h3 class="topictitle">
                         <a class="topictitlelink" href="/topics/${encodeURIComponent(slugify(topic.topic))}">
-                            ${topic.topic}
+                            ${escapeHtml(topic.topic)}
                         </a>
                     </h3>
-                    <button class="dropdownbutton" onclick="toggleDropdown(this)">⌄</button>
+                    <button class="dropdownbutton">⌄</button>
                 </div>
                 <div class="dropdowncontent">
                     ${subtopicshtml || '<a href="#">No subtopics available</a>'}
@@ -203,6 +207,10 @@ function renderTopicIndex(topics) {
             </div>
         `;
     }).join(' ');
+
+    container.querySelectorAll(".dropdownbutton").forEach((button) => {
+        button.addEventListener("click", () => toggleDropdown(button));
+    });
 }
 
 function renderTopicDetail(topics, topicSlug) {
@@ -227,11 +235,11 @@ function renderTopicDetail(topics, topicSlug) {
     const subtopicshtml = selectedTopic.subtopics.length
         ? selectedTopic.subtopics.map(subtopic => {
             const tagarray = subtopic.tags ? subtopic.tags.split(', ') : [];
-            const tagshtml = tagarray.map(tag => `<span class="tag">(${tag})</span>`).join(' ');
+            const tagshtml = tagarray.map(tag => `<span class="tag">(${escapeHtml(tag)})</span>`).join(' ');
 
             return `
                 <a class="topicdetailitem" id="${slugify(subtopic.name)}" href="/topics/${encodeURIComponent(topicSlug)}/${encodeURIComponent(slugify(subtopic.name))}">
-                    <span class="topicdetailitemtitle">${subtopic.name}</span>
+                    <span class="topicdetailitemtitle">${escapeHtml(subtopic.name)}</span>
                     <span class="topicdetailitemmeta">${tagshtml}</span>
                 </a>
             `;
@@ -241,7 +249,7 @@ function renderTopicDetail(topics, topicSlug) {
     container.innerHTML = `
         <div class="topicdetail">
             <a class="topicdetailback" href="/topics/">Back to all topics</a>
-            <h1 class="topicdetailtitle">${selectedTopic.topic}</h1>
+            <h1 class="topicdetailtitle">${escapeHtml(selectedTopic.topic)}</h1>
             <div class="topicdetailgrid">
                 ${subtopicshtml}
             </div>
@@ -573,7 +581,7 @@ async function renderSubtopicDetail(topics, topicSlug, subtopicSlug) {
     if (!selectedSubtopic) {
         container.innerHTML = `
             <div class="topicdetail">
-                <a class="topicdetailback" href="/topics/${encodeURIComponent(topicSlug)}">Back to ${selectedTopic.topic}</a>
+                <a class="topicdetailback" href="/topics/${encodeURIComponent(topicSlug)}">Back to ${escapeHtml(selectedTopic.topic)}</a>
                 <h1 class="topicdetailtitle">Subtopic not found</h1>
                 <p class="topicdetailtext">We couldn't find that subtopic inside this topic.</p>
             </div>
@@ -582,7 +590,7 @@ async function renderSubtopicDetail(topics, topicSlug, subtopicSlug) {
     }
 
     const tagarray = selectedSubtopic.tags ? selectedSubtopic.tags.split(', ') : [];
-    const tagshtml = tagarray.map(tag => `<span class="tag">(${tag})</span>`).join(' ');
+    const tagshtml = tagarray.map(tag => `<span class="tag">(${escapeHtml(tag)})</span>`).join(' ');
 
     try {
         const response = await fetch(`/api/problem-sets?topic=${encodeURIComponent(selectedTopic.topic)}&subtopic=${encodeURIComponent(selectedSubtopic.name)}`);
@@ -606,10 +614,10 @@ async function renderSubtopicDetail(topics, topicSlug, subtopicSlug) {
 
         container.innerHTML = `
             <div class="topicdetail">
-                <a class="topicdetailback" href="/topics/${encodeURIComponent(topicSlug)}">Back to ${selectedTopic.topic}</a>
+                <a class="topicdetailback" href="/topics/${encodeURIComponent(topicSlug)}">Back to ${escapeHtml(selectedTopic.topic)}</a>
                 <div class="topicdetailpanel">
                     <div class="topicdetailsectionheader">
-                        <h2>${selectedSubtopic.name}</h2>
+                        <h2>${escapeHtml(selectedSubtopic.name)}</h2>
                         <span class="topicdetailitemmeta">${tagshtml}</span>
                     </div>
                     <div class="topicdetailsection">
@@ -623,10 +631,10 @@ async function renderSubtopicDetail(topics, topicSlug, subtopicSlug) {
         console.error("Failed to load problem sets for subtopic:", error);
         container.innerHTML = `
             <div class="topicdetail">
-                <a class="topicdetailback" href="/topics/${encodeURIComponent(topicSlug)}">Back to ${selectedTopic.topic}</a>
+                <a class="topicdetailback" href="/topics/${encodeURIComponent(topicSlug)}">Back to ${escapeHtml(selectedTopic.topic)}</a>
                 <div class="topicdetailpanel">
                     <div class="topicdetailsectionheader">
-                        <h2>${selectedSubtopic.name}</h2>
+                        <h2>${escapeHtml(selectedSubtopic.name)}</h2>
                         <span class="topicdetailitemmeta">${tagshtml}</span>
                     </div>
                     <div class="topicdetailsection">

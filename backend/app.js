@@ -45,165 +45,6 @@ function generateVerificationCode() {
     return String(crypto.randomInt(100000, 1000000));
 }
 
-async function ensurePasswordResetTable() {
-    await db.query(`
-        CREATE TABLE IF NOT EXISTS password_reset_codes (
-            id INT AUTO_INCREMENT PRIMARY KEY,
-            user_id INT NOT NULL,
-            email VARCHAR(255) NOT NULL,
-            code_hash VARCHAR(255) NOT NULL,
-            expires_at DATETIME NOT NULL,
-            used_at DATETIME DEFAULT NULL,
-            created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-            INDEX idx_password_reset_user_id (user_id),
-            INDEX idx_password_reset_email (email),
-            INDEX idx_password_reset_expires_at (expires_at)
-        )
-    `);
-}
-
-async function ensureSessionsTable() {
-    await db.query(`
-        CREATE TABLE IF NOT EXISTS sessions (
-            id INT AUTO_INCREMENT PRIMARY KEY,
-            user_id INT NOT NULL,
-            token_hash CHAR(64) NOT NULL,
-            created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-            expires_at DATETIME NOT NULL,
-            UNIQUE INDEX idx_sessions_token_hash (token_hash),
-            INDEX idx_sessions_user_id (user_id)
-        )
-    `);
-}
-
-async function ensureGoogleAuthColumns() {
-    const [columnRows] = await db.query(
-        `
-        SELECT COUNT(*) AS column_count
-        FROM INFORMATION_SCHEMA.COLUMNS
-        WHERE TABLE_SCHEMA = DATABASE()
-          AND TABLE_NAME = 'users'
-          AND COLUMN_NAME = 'google_sub'
-        `
-    );
-
-    if (columnRows[0].column_count === 0) {
-        await db.query("ALTER TABLE users ADD COLUMN google_sub VARCHAR(255) DEFAULT NULL");
-    }
-
-    const [indexRows] = await db.query(
-        `
-        SELECT COUNT(*) AS index_count
-        FROM INFORMATION_SCHEMA.STATISTICS
-        WHERE TABLE_SCHEMA = DATABASE()
-          AND TABLE_NAME = 'users'
-          AND INDEX_NAME = 'idx_users_google_sub'
-        `
-    );
-
-    if (indexRows[0].index_count === 0) {
-        await db.query("ALTER TABLE users ADD INDEX idx_users_google_sub (google_sub)");
-    }
-}
-
-async function ensureProfileVisibilityColumns() {
-    const [emailColumns] = await db.query(
-        `
-        SELECT COUNT(*) AS column_count
-        FROM INFORMATION_SCHEMA.COLUMNS
-        WHERE TABLE_SCHEMA = DATABASE()
-          AND TABLE_NAME = 'users'
-          AND COLUMN_NAME = 'public_email'
-        `
-    );
-
-    if (emailColumns[0].column_count === 0) {
-        await db.query("ALTER TABLE users ADD COLUMN public_email TINYINT(1) NOT NULL DEFAULT 0");
-    }
-
-    const [bioColumns] = await db.query(
-        `
-        SELECT COUNT(*) AS column_count
-        FROM INFORMATION_SCHEMA.COLUMNS
-        WHERE TABLE_SCHEMA = DATABASE()
-          AND TABLE_NAME = 'users'
-          AND COLUMN_NAME = 'bio'
-        `
-    );
-
-    if (bioColumns[0].column_count === 0) {
-        await db.query("ALTER TABLE users ADD COLUMN bio TEXT DEFAULT NULL");
-    }
-}
-
-async function ensureProblemSetsTable() {
-    await db.query(`
-        CREATE TABLE IF NOT EXISTS problem_sets (
-            id INT AUTO_INCREMENT PRIMARY KEY,
-            name VARCHAR(255) NOT NULL,
-            description TEXT DEFAULT NULL,
-            topic VARCHAR(255) DEFAULT NULL,
-            subtopic VARCHAR(255) DEFAULT NULL,
-            tags VARCHAR(255) DEFAULT NULL,
-            created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-            updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-            INDEX idx_problem_sets_name (name),
-            INDEX idx_problem_sets_topic (topic),
-            INDEX idx_problem_sets_subtopic (subtopic),
-            INDEX idx_problem_sets_tags (tags)
-        )
-    `);
-
-    const [topicColumns] = await db.query(
-        `
-        SELECT COUNT(*) AS column_count
-        FROM INFORMATION_SCHEMA.COLUMNS
-        WHERE TABLE_SCHEMA = DATABASE()
-          AND TABLE_NAME = 'problem_sets'
-          AND COLUMN_NAME = 'topic'
-        `
-    );
-
-    if (topicColumns[0].column_count === 0) {
-        await db.query("ALTER TABLE problem_sets ADD COLUMN topic VARCHAR(255) DEFAULT NULL");
-    }
-
-    const [subtopicColumns] = await db.query(
-        `
-        SELECT COUNT(*) AS column_count
-        FROM INFORMATION_SCHEMA.COLUMNS
-        WHERE TABLE_SCHEMA = DATABASE()
-          AND TABLE_NAME = 'problem_sets'
-          AND COLUMN_NAME = 'subtopic'
-        `
-    );
-
-    if (subtopicColumns[0].column_count === 0) {
-        await db.query("ALTER TABLE problem_sets ADD COLUMN subtopic VARCHAR(255) DEFAULT NULL");
-    }
-}
-
-async function ensureProblemSuggestionTable() {
-    await db.query(`
-        CREATE TABLE IF NOT EXISTS problem_set_suggestions (
-            id INT AUTO_INCREMENT PRIMARY KEY,
-            name VARCHAR(255) NOT NULL,
-            description TEXT DEFAULT NULL,
-            topic VARCHAR(255) DEFAULT NULL,
-            subtopic VARCHAR(255) DEFAULT NULL,
-            tags VARCHAR(255) DEFAULT NULL,
-            problems TEXT NOT NULL,
-            submitter VARCHAR(255) DEFAULT NULL,
-            status ENUM('pending', 'reviewed', 'approved', 'rejected') NOT NULL DEFAULT 'pending',
-            created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-            updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-            INDEX idx_suggestions_topic (topic),
-            INDEX idx_suggestions_subtopic (subtopic),
-            INDEX idx_suggestions_status (status)
-        )
-    `);
-}
-
 async function sendPasswordResetEmail(email, username, code) {
     if (!mailer) {
         throw new Error("SMTP is not configured.");
@@ -217,31 +58,22 @@ async function sendPasswordResetEmail(email, username, code) {
     });
 }
 
-// Schema is ensured once per process start: once at server boot on a traditional
-// host, or once per cold start on serverless — either way this only runs when a
-// fresh process/module instance loads, never per-request.
-ensurePasswordResetTable().catch(err => {
-    console.error("Failed to ensure password_reset_codes table exists:", err);
-});
+const contentSecurityPolicy = [
+    "default-src 'self'",
+    "script-src 'self' https://accounts.google.com",
+    "style-src 'self' 'unsafe-inline' https://fonts.cdnfonts.com",
+    "img-src 'self' data: https://accounts.google.com https://*.googleusercontent.com",
+    "font-src 'self' https://fonts.cdnfonts.com",
+    "connect-src 'self' https://accounts.google.com",
+    "frame-src https://accounts.google.com",
+    "object-src 'none'",
+    "base-uri 'self'",
+    "frame-ancestors 'self'"
+].join("; ");
 
-ensureSessionsTable().catch(err => {
-    console.error("Failed to ensure sessions table exists:", err);
-});
-
-ensureGoogleAuthColumns().catch(err => {
-    console.error("Failed to ensure Google auth columns exist:", err);
-});
-
-ensureProfileVisibilityColumns().catch(err => {
-    console.error("Failed to ensure profile visibility columns exist:", err);
-});
-
-ensureProblemSetsTable().catch(err => {
-    console.error("Failed to ensure problem_sets table exists:", err);
-});
-
-ensureProblemSuggestionTable().catch(err => {
-    console.error("Failed to ensure problem_set_suggestions table exists:", err);
+app.use((req, res, next) => {
+    res.setHeader("Content-Security-Policy", contentSecurityPolicy);
+    next();
 });
 
 app.use(express.static(frontendPath));
@@ -427,7 +259,7 @@ app.get("/api/problem-sets", async (req, res) => {
     }
 });
 
-app.post("/api/problem-sets", async (req, res) => {
+app.post("/api/problem-sets", auth.requireAuth, async (req, res) => {
     try {
         const { name, description, topic, subtopic, tags } = req.body || {};
 

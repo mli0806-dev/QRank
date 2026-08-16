@@ -43,8 +43,8 @@ async function calLoad() {
                 const competitionbadge = document.createElement("div");
                 competitionbadge.classList.add("competitionbadge");
                 competitionbadge.innerHTML = `
-                <span class="competitiontitle">${contest.title}</span><br>
-                <span class="competitiontime">${contest.start_time} - ${contest.end_time}</span>
+                <span class="competitiontitle">${escapeHtml(contest.title)}</span><br>
+                <span class="competitiontime">${escapeHtml(contest.start_time)} - ${escapeHtml(contest.end_time)}</span>
                 `;
                 competitionbadge.addEventListener("click", (e) => {
                     e.stopPropagation();

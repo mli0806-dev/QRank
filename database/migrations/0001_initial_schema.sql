@@ -1,11 +1,3 @@
--- Reference snapshot of the schema produced by running every file in
--- database/migrations/ (via `npm run migrate`), which is the authoritative,
--- incrementally-tracked source of truth. Don't hand-edit a live database
--- against this file directly; add a new migration instead so schema.sql and
--- the actual database never drift apart again.
-
-SET FOREIGN_KEY_CHECKS = 0;
-
 CREATE TABLE IF NOT EXISTS users (
     id INT AUTO_INCREMENT PRIMARY KEY,
     username VARCHAR(50) NOT NULL,
@@ -13,12 +5,8 @@ CREATE TABLE IF NOT EXISTS users (
     password_hash VARCHAR(255) NOT NULL,
     role VARCHAR(20) DEFAULT 'user',
     created_at TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP,
-    google_sub VARCHAR(255) DEFAULT NULL,
-    public_email TINYINT(1) NOT NULL DEFAULT 0,
-    bio TEXT,
     UNIQUE KEY username (username),
-    UNIQUE KEY email (email),
-    INDEX idx_users_google_sub (google_sub)
+    UNIQUE KEY email (email)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 CREATE TABLE IF NOT EXISTS sessions (
@@ -66,8 +54,6 @@ CREATE TABLE IF NOT EXISTS problem_sets (
     tags VARCHAR(255) DEFAULT NULL,
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    topic VARCHAR(255) DEFAULT NULL,
-    subtopic VARCHAR(255) DEFAULT NULL,
     INDEX idx_problem_sets_name (name),
     INDEX idx_problem_sets_tags (tags)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
@@ -107,5 +93,3 @@ CREATE TABLE IF NOT EXISTS leaderboard (
     INDEX user_id (user_id),
     CONSTRAINT leaderboard_ibfk_1 FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
-
-SET FOREIGN_KEY_CHECKS = 1;
