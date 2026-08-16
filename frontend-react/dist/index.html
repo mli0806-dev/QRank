@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <!--
+      Same-origin external file rather than an inline script for two
+      reasons: it's allowed by script-src 'self' with no CSP change needed
+      (an inline script needs 'unsafe-inline' or a content hash, and a hash
+      would need updating every time this script's contents change), and it
+      still has to come before any <link rel="stylesheet"> in the document --
+      browsers delay executing a later script (inline or external) until
+      every preceding stylesheet, including the cross-origin D-DIN font link
+      below, has finished loading.
+    -->
+    <script src="/topics-react/prefetch-topics.js"></script>
+    <link rel="icon" type="image/svg+xml" href="/topics-react/favicon.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link href="https://fonts.cdnfonts.com/css/d-din" rel="stylesheet">
+    <title>QRank Topics (React)</title>
+    <script type="module" crossorigin src="/topics-react/assets/index-BhuBx3fT.js"></script>
+    <link rel="stylesheet" crossorigin href="/topics-react/assets/index-Cmp7ZV5J.css">
+  </head>
+  <body>
+    <div id="root"></div>
+  </body>
+</html>

@@ -327,15 +327,52 @@ function initTopicNetworkMap(topics = []) {
 
     const centerX = 700;
     const centerY = 450;
-    const outerRadius = 320;
     const totalTopics = topics.length || 1;
+
+    let measureContext = null;
+    function measureLabelWidth(label) {
+        if (!measureContext) {
+            measureContext = document.createElement('canvas').getContext('2d');
+            measureContext.font = '14px D-DIN, sans-serif';
+        }
+        return measureContext.measureText(label).width;
+    }
+
+    const NODE_HALF_HEIGHT = 23; // matches .network-node's min-height: 46px
+    const NODE_GAP = 40; // minimum clearance between any two node edges, anywhere on the map
+
+    function nodeHalfWidth(label, horizontalPadding) {
+        return Math.max(140, measureLabelWidth(label) + horizontalPadding) / 2;
+    }
+
+    function boxesOverlap(a, b) {
+        return Math.abs(a.x - b.x) < (a.halfW + b.halfW + NODE_GAP) &&
+            Math.abs(a.y - b.y) < (a.halfH + b.halfH + NODE_GAP);
+    }
+
+    const topicLabels = topics.map((topic) => topic.topic + (topic.subtopics?.length ? ` (${topic.subtopics.length})` : ''));
+
+    // The circle has to be wide enough that adjacent topic labels don't
+    // collide with each other -- chord length between two evenly-spaced
+    // points on a circle of radius R is 2R*sin(angleStep/2), so solve for
+    // the R that gives the widest pair of labels enough room. Floors at 320
+    // (today's fixed value) so a handful of short topic names still gets
+    // the same spacious layout as before.
+    const maxTopicHalfWidth = Math.max(70, ...topicLabels.map((label) => nodeHalfWidth(label, 32)));
+    const angleStep = (Math.PI * 2) / totalTopics;
+    // With a single topic there's no adjacent node to avoid colliding with --
+    // sin(angleStep/2) is sin(pi), effectively zero, which would otherwise
+    // divide out to a near-infinite radius and place the node off-screen.
+    const requiredRadius = totalTopics > 1
+        ? (maxTopicHalfWidth * 2 + NODE_GAP) / (2 * Math.sin(angleStep / 2))
+        : 0;
+    const outerRadius = Math.max(320, requiredRadius);
 
     const nodes = topics.map((topic, index) => {
         const angle = (index / totalTopics) * Math.PI * 2;
         const x = centerX + Math.cos(angle) * outerRadius;
         const y = centerY + Math.sin(angle) * outerRadius;
-        const label = topic.topic + (topic.subtopics?.length ? ` (${topic.subtopics.length})` : '');
-        return { x, y, label };
+        return { x, y, label: topicLabels[index] };
     });
 
     if (!nodes.length) {
@@ -383,6 +420,51 @@ function initTopicNetworkMap(topics = []) {
         }
         handleMapClick(ev);
     });
+
+    // Pack a topic's own subtopics ring by ring, same as before: each node's
+    // angular width is its real label width converted to an angle at that
+    // ring's radius, so a ring never runs out of room mid-label. Returns
+    // angle/radius instead of committing to x/y, because final placement
+    // also depends on every OTHER node currently on the map (see renderMap).
+    function getSubtopicAngles(parentNode, subtopics) {
+        const baseRadius = 160;
+        const ringGap = 100;
+        const maxRingArc = Math.PI * 1.9;
+        const nodeHorizontalPadding = 36; // matches .network-node.subtopic's 18px left/right padding
+        const parentAngle = Math.atan2(parentNode.y - centerY, parentNode.x - centerX);
+        const layout = [];
+        let remaining = subtopics.slice();
+        let ring = 0;
+
+        while (remaining.length) {
+            const radius = baseRadius + ring * ringGap;
+            const ringItems = [];
+            let usedArc = 0;
+
+            while (remaining.length) {
+                const sub = remaining[0];
+                const angularWidth = (measureLabelWidth(sub.name) + nodeHorizontalPadding + NODE_GAP) / radius;
+                if (ringItems.length > 0 && usedArc + angularWidth > maxRingArc) {
+                    break;
+                }
+                ringItems.push({ sub, angularWidth });
+                usedArc += angularWidth;
+                remaining.shift();
+            }
+
+            let angleCursor = parentAngle - usedArc / 2;
+            for (const { sub, angularWidth } of ringItems) {
+                const angle = angleCursor + angularWidth / 2;
+                layout.push({ sub, angle, radius });
+                angleCursor += angularWidth;
+            }
+
+            ring += 1;
+        }
+
+        return layout;
+    }
+
     renderMap();
 
     let scale = 1;
@@ -403,34 +485,38 @@ function initTopicNetworkMap(topics = []) {
         map.style.transform = `translate(${originX}px, ${originY}px) scale(${scale})`;
     }
 
-    function getSubtopicLayout(parentNode, subtopics) {
-        const total = subtopics.length;
-        const baseRadius = 140;
-        const maxPerRing = 6;
-        const ringCount = Math.max(1, Math.ceil(total / maxPerRing));
-        const parentAngle = Math.atan2(parentNode.y - centerY, parentNode.x - centerX);
-        const layout = [];
+    // Angular offsets tried at each radius ring before pushing further out --
+    // a pure "push straight outward along the original angle" search can
+    // still walk a node into something else that happens to sit at a
+    // different angle but similar radius (this actually happened under a
+    // synthetic 40-subtopics-on-one-topic stress test). Trying a small fan
+    // of nearby angles at each radius first finds a genuinely free spot far
+    // more often, and keeps most nodes close to their intended position.
+    const COLLISION_SEARCH_ANGLE_OFFSETS = [0, 0.15, -0.15, 0.3, -0.3, 0.5, -0.5, 0.8, -0.8];
 
-        let offset = 0;
-        for (let ring = 0; ring < ringCount; ring++) {
-            const remaining = total - offset;
-            const ringSize = Math.min(maxPerRing, remaining);
-            const radius = baseRadius + ring * 90 + (ringSize > 4 ? 10 : 0);
-            const arcWidth = Math.min(Math.PI * 1.9, Math.max(1.1, 0.35 * ringSize + 0.4));
-            const step = ringSize > 1 ? arcWidth / (ringSize - 1) : 0;
-            const startAngle = parentAngle - arcWidth / 2 + (ring % 2 === 1 ? step / 2 : 0);
+    function resolveSubtopicPosition(parentNode, initialAngle, initialRadius, halfW, halfH, obstacles) {
+        const maxRadius = initialRadius + 40 * 20;
+        let radius = initialRadius;
 
-            for (let idx = 0; idx < ringSize; idx++) {
-                const angle = ringSize > 1 ? startAngle + idx * step : parentAngle + (ring % 2 === 1 ? 0.15 : -0.15);
+        while (radius <= maxRadius) {
+            for (const offset of COLLISION_SEARCH_ANGLE_OFFSETS) {
+                const angle = initialAngle + offset;
                 const x = parentNode.x + Math.cos(angle) * radius;
                 const y = parentNode.y + Math.sin(angle) * radius;
-                layout.push({ sub: subtopics[offset + idx], x, y });
+                if (!obstacles.some((o) => boxesOverlap({ x, y, halfW, halfH }, o))) {
+                    return { x, y };
+                }
             }
-
-            offset += ringSize;
+            radius += 20;
         }
 
-        return layout;
+        // Every attempt collided -- extremely unlikely, but rather than loop
+        // forever, place it at the final radius on its original angle and
+        // accept the overlap.
+        return {
+            x: parentNode.x + Math.cos(initialAngle) * radius,
+            y: parentNode.y + Math.sin(initialAngle) * radius
+        };
     }
 
     function renderMap() {
@@ -440,14 +526,34 @@ function initTopicNetworkMap(topics = []) {
             `);
         }).join("");
 
-        const expandedSubtopicData = Array.from(selectedTopicIndexes).flatMap((index) => {
+        // Every topic node is a permanent obstacle regardless of expand state,
+        // so a subtopic ring can never land on top of a neighboring topic.
+        const obstacles = nodes.map((node) => ({
+            x: node.x,
+            y: node.y,
+            halfW: nodeHalfWidth(node.label, 32),
+            halfH: NODE_HALF_HEIGHT
+        }));
+
+        const expandedSubtopicData = [];
+
+        Array.from(selectedTopicIndexes).forEach((index) => {
             const topic = topics[index];
             const parentNode = nodes[index] || { x: centerX, y: centerY };
-            const layout = getSubtopicLayout(parentNode, topic?.subtopics || []);
-            return layout.map(({ sub, x, y }) => ({
-                line: `<line x1="${parentNode.x}" y1="${parentNode.y}" x2="${x}" y2="${y}" />`,
-                markup: `<button type="button" class="network-node subtopic" data-type="subtopic" data-topic-slug="${encodeURIComponent(slugify(topic.topic))}" data-subtopic-slug="${encodeURIComponent(slugify(sub.name))}" style="left: ${x}px; top: ${y}px;">${escapeHtml(sub.name)}</button>`
-            }));
+            const angled = getSubtopicAngles(parentNode, topic?.subtopics || []);
+
+            angled.forEach(({ sub, angle, radius }) => {
+                const halfW = nodeHalfWidth(sub.name, 36);
+                const halfH = NODE_HALF_HEIGHT;
+                const { x, y } = resolveSubtopicPosition(parentNode, angle, radius, halfW, halfH, obstacles);
+
+                obstacles.push({ x, y, halfW, halfH });
+
+                expandedSubtopicData.push({
+                    line: `<line x1="${parentNode.x}" y1="${parentNode.y}" x2="${x}" y2="${y}" />`,
+                    markup: `<button type="button" class="network-node subtopic" data-type="subtopic" data-topic-slug="${encodeURIComponent(slugify(topic.topic))}" data-subtopic-slug="${encodeURIComponent(slugify(sub.name))}" style="left: ${x}px; top: ${y}px;">${escapeHtml(sub.name)}</button>`
+                });
+            });
         });
 
         const lines = `${topicLines}${expandedSubtopicData.map((item) => item.line).join("")}`;
