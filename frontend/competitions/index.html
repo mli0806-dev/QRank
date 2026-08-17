@@ -26,11 +26,11 @@
         </div>
     </nav>
     <main>
-        <h1 class="welcometext">Competition Calendar</h1>
+        <h1 class="welcometext">Competitions</h1>
         <div class="calendarbox">
             <div class="calendarheader" id="calendarheader">
-                <button id="prevmonth" class="calendarbutton">Previous</button>
-                <button id="nextmonth" class="calendarbutton">Next</button>
+                <button id="prevmonth" class="calendarbutton" aria-label="Previous month">&lt;</button>
+                <button id="nextmonth" class="calendarbutton" aria-label="Next month">&gt;</button>
                 <div id="monthyear" class="monthyear"></div>
             </div>
             <div class="calendarlabels">
@@ -44,8 +44,11 @@
             </div>
             <div id="calendarcontainer"></div>
         </div>
+        <div class="competitionsearch">
+            <iframe src="https://doq.world" height="400px" width="600px" frameborder="0"></iframe>
+        </div>
     </main>
-    <footer class="sitefooter">© 2026 QRank. All rights reserved.</footer>
+    <footer class="sitefooter">© 2026 QRank. All rights reserved. · <a class="footerlink" href="/tos/">Terms of Service</a> · <a class="footerlink" href="/privacy/">Privacy Policy</a></footer>
     <script src="/competitions/calendar.js"></script>
     <script src="/script.js"></script>
 </body>

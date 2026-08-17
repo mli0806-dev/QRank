@@ -51,14 +51,19 @@
                 <input class="inputs" type="email" id="register-email" required placeholder="tung@sahur.com">
                 <label for="register-password">Password:</label>
                 <input class="inputs" type="password" id="register-password" required placeholder="67676767">
+                <label class="authcheckboxlabel" for="register-terms">
+                    <input type="checkbox" id="register-terms" required>
+                    <span>I agree to the <a class="footerlink" href="/tos/" target="_blank" rel="noopener">Terms of Service</a> and <a class="footerlink" href="/privacy/" target="_blank" rel="noopener">Privacy Policy</a></span>
+                </label>
                 <button type="submit" class="authsubmit">Register</button>
             </form>
             <div class="authdivider">or continue with Google</div>
             <div id="google-register-error" class="autherrorhidden"></div>
-            <div id="google-register-button" class="googlesigninbutton"></div>
+            <p id="google-register-consent" class="authcheckboxnote">Check the box above to continue with Google.</p>
+            <div id="google-register-button" class="googlesigninbutton googledisabled"></div>
         </div>
     </main>
-<footer class="sitefooter">© 2026 QRank. All rights reserved.</footer>
+<footer class="sitefooter">© 2026 QRank. All rights reserved. · <a class="footerlink" href="/terms/">Terms of Service</a> · <a class="footerlink" href="/privacy/">Privacy Policy</a></footer>
 <script src="/script.js"></script>
 <script src="/login/auth.js"></script>
 </body>

@@ -10,7 +10,7 @@
 <body>
     <nav class="headerbox">
         <div class="left">
-            <a href="/" class="sitetitle">QRank - Leaderboard </a>
+            <a href="/" class="sitetitle">QRank - Competitions </a>
             <ul class="tablist">
                 <li><a class="tabitems" href="/topics/">Topics</a></li>
                 <li><a class="tabitems" href="/problems/">Problem Sets</a></li>
@@ -26,17 +26,12 @@
         </div>
     </nav>
     <main>
-        <section class="rankingsearchpanel">
-            <form id="user-search-form" class="rankingsearchform">
-                <label class="rankingsearchlabel" for="user-search">Search for a user</label>
-                <div class="rankingsearchcontrols">
-                    <input id="user-search" class="inputs rankingsearchinput" type="text" placeholder="Enter username" autocomplete="off">
-                    <button type="submit" class="authsubmit rankingsearchbutton">Go</button>
-                </div>
-            </form>
-        </section>
+        <div id="competitiondetailcontainer" class="topicdetail">
+            <p class="topicdetailtext">Loading competitions…</p>
+        </div>
     </main>
-    <footer class="sitefooter">© 2026 QRank. All rights reserved. · <a class="footerlink" href="/tos/">Terms of Service</a> · <a class="footerlink" href="/privacy/">Privacy Policy</a></footer>
+    <footer class="sitefooter">© 2026 QRank. All rights reserved. · <a class="footerlink" href="/terms/">Terms of Service</a> · <a class="footerlink" href="/privacy/">Privacy Policy</a></footer>
     <script src="/script.js"></script>
+    <script src="/competitions/detail.js"></script>
 </body>
 </html>

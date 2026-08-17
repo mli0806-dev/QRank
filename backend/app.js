@@ -8,6 +8,7 @@ const cookieParser = require('cookie-parser');
 const bcrypt = require('bcrypt');
 const crypto = require('crypto');
 const nodemailer = require('nodemailer');
+const rateLimit = require('express-rate-limit');
 const auth = require('./auth');
 const db = require('./config/db');
 const { deleteExpiredPasswordResetCodes, deleteExpiredSessions } = require('./cleanup');
@@ -16,8 +17,11 @@ const app = express();
 const frontendPath = path.join(__dirname, '../frontend');
 const topicsPagePath = path.join(frontendPath, 'topics/index.html');
 const profilePagePath = path.join(frontendPath, 'profile/index.html');
+const competitionDetailPagePath = path.join(frontendPath, 'competitions/detail/index.html');
+const notFoundPagePath = path.join(frontendPath, '404/index.html');
 const sendTopicsPage = (req, res) => res.sendFile(topicsPagePath);
 const sendProfilePage = (req, res) => res.sendFile(profilePagePath);
+const sendCompetitionDetailPage = (req, res) => res.sendFile(competitionDetailPagePath);
 const resetCodeTtlMinutes = parseInt(process.env.RESET_CODE_TTL_MINUTES || "15", 10);
 const googleClientId = process.env.GOOGLE_CLIENT_ID || "";
 const smtpPort = parseInt(process.env.SMTP_PORT || "587", 10);
@@ -40,6 +44,24 @@ const mailer = mailerReady
         }
     })
     : null;
+
+const dummyPasswordHash = bcrypt.hashSync(crypto.randomBytes(32).toString('hex'), 10);
+
+const authLimiter = rateLimit({
+    windowMs: 10 * 60 * 1000,
+    max: 10,
+    standardHeaders: true,
+    legacyHeaders: false,
+    message: { message: "Too many attempts. Please try again later." }
+});
+
+const passwordResetLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000,
+    max: 5,
+    standardHeaders: true,
+    legacyHeaders: false,
+    message: { message: "Too many attempts. Please try again later." }
+});
 
 function generateVerificationCode() {
     return String(crypto.randomInt(100000, 1000000));
@@ -65,7 +87,7 @@ const contentSecurityPolicy = [
     "img-src 'self' data: https://accounts.google.com https://*.googleusercontent.com",
     "font-src 'self' https://fonts.cdnfonts.com",
     "connect-src 'self' https://accounts.google.com",
-    "frame-src https://accounts.google.com",
+    "frame-src https://accounts.google.com https://doq.world",
     "object-src 'none'",
     "base-uri 'self'",
     "frame-ancestors 'self'"
@@ -204,6 +226,7 @@ app.get(/^\/topics\/.*$/, sendTopicsPage);
 app.get("/profile", sendProfilePage);
 app.get("/profile/", sendProfilePage);
 app.get("/profile/:username", sendProfilePage);
+app.get("/competitions/:id", sendCompetitionDetailPage);
 
 app.get("/api/problem-sets", async (req, res) => {
     try {
@@ -415,7 +438,7 @@ app.put("/api/users/:username", auth.requireAuth, async (req, res) => {
     }
 });
 
-app.post("/api/password-reset/request", async (req, res) => {
+app.post("/api/password-reset/request", passwordResetLimiter, async (req, res) => {
     try {
         const { username, email } = req.body;
 
@@ -476,7 +499,7 @@ app.post("/api/password-reset/request", async (req, res) => {
     }
 });
 
-app.post("/api/password-reset/verify", async (req, res) => {
+app.post("/api/password-reset/verify", passwordResetLimiter, async (req, res) => {
     try {
         const { code, newPassword } = req.body;
 
@@ -564,7 +587,33 @@ app.get("/api/competitions", async (req, res) => {
     }
 });
 
-app.post("/api/register", async (req, res) => {
+app.get("/api/competitions/:id", async (req, res) => {
+    try {
+        const { id } = req.params;
+
+        const [rows] = await db.query(`
+            SELECT id, title, category,
+                DATE_FORMAT(start_date, '%Y-%m-%d') AS start_date,
+                DATE_FORMAT(end_date, '%Y-%m-%d') AS end_date,
+                TIME_FORMAT(start_time, '%l:%i:%p') AS start_time,
+                TIME_FORMAT(end_time, '%l:%i:%p') AS end_time
+            FROM competitions
+            WHERE id = ?
+            LIMIT 1
+        `, [id]);
+
+        if (rows.length === 0) {
+            return res.status(404).json({ message: "Competition not found." });
+        }
+
+        res.json(rows[0]);
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ message: "Database query failed." });
+    }
+});
+
+app.post("/api/register", authLimiter, async (req, res) => {
     try {
         const {username, email, password} = req.body;
 
@@ -713,7 +762,7 @@ app.post("/api/auth/google", async (req, res) => {
     }
 });
 
-app.post("/api/login", async (req, res) => {
+app.post("/api/login", authLimiter, async (req, res) => {
     try {
         const {email, password} = req.body;
 
@@ -722,16 +771,11 @@ app.post("/api/login", async (req, res) => {
         }
 
         const [rows] = await db.query("SELECT id, username, password_hash FROM users WHERE email = ?", [email]);
+        const user = rows[0] || null;
+        const passwordMatch = await bcrypt.compare(password, user ? user.password_hash : dummyPasswordHash);
 
-        if (rows.length === 0) {
+        if (!user || !passwordMatch) {
             return res.status(400).json({message: "Invalid email or password."});
-        }
-
-        const user = rows[0];
-        const passwordMatch = await bcrypt.compare(password, user.password_hash);
-
-        if (!passwordMatch) {
-            return res.status(400).json({message: "Invalid password."});
         }
 
         const { token, expiresAt } = await auth.createSession(user.id);
@@ -744,6 +788,19 @@ app.post("/api/login", async (req, res) => {
         console.error("User login error:", err);
         res.status(500).json({message: "User login failed."});
     }
+});
+
+app.use((req, res) => {
+    if (req.path.startsWith("/api/")) {
+        return res.status(404).json({ message: "Not found." });
+    }
+
+    res.status(404).sendFile(notFoundPagePath);
+});
+
+app.use((err, req, res, next) => {
+    console.error(err);
+    res.status(err.status || 500).json({ message: "Something went wrong." });
 });
 
 module.exports = app;

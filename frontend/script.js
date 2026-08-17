@@ -372,11 +372,12 @@ function initTopicNetworkMap(topics = []) {
         const angle = (index / totalTopics) * Math.PI * 2;
         const x = centerX + Math.cos(angle) * outerRadius;
         const y = centerY + Math.sin(angle) * outerRadius;
-        return { x, y, label: topicLabels[index] };
+        const hue = (index / totalTopics) * 360;
+        return { x, y, label: topicLabels[index], color: `hsl(${hue}, 50%, 80%)` };
     });
 
     if (!nodes.length) {
-        nodes.push({ x: centerX, y: centerY, label: 'No topics found' });
+        nodes.push({ x: centerX, y: centerY, label: 'No topics found', color: 'hsl(0, 0%, 50%)' });
     }
 
     const selectedTopicIndexes = new Set();
@@ -520,14 +521,21 @@ function initTopicNetworkMap(topics = []) {
     }
 
     function renderMap() {
-        const topicLines = nodes.flatMap((start, i) => {
-            return nodes.slice(i + 1).map((end) => `
-                <line x1="${start.x}" y1="${start.y}" x2="${end.x}" y2="${end.y}" />
-            `);
-        }).join("");
+        // Each line between two topics blends their two distinct colors via an SVG gradient -- gradientUnits="userSpaceOnUse" plus the line's own endpoint coordinates makes the gradient run exactly along the line itself rather than a default box-relative direction.
+        const topicLineData = nodes.flatMap((start, i) => {
+            return nodes.slice(i + 1).map((end, offset) => {
+                const j = i + 1 + offset;
+                const gradientId = `topic-line-${i}-${j}`;
+                return {
+                    gradient: `<linearGradient id="${gradientId}" gradientUnits="userSpaceOnUse" x1="${start.x}" y1="${start.y}" x2="${end.x}" y2="${end.y}"><stop offset="0%" stop-color="${start.color}" /><stop offset="100%" stop-color="${end.color}" /></linearGradient>`,
+                    line: `<line x1="${start.x}" y1="${start.y}" x2="${end.x}" y2="${end.y}" style="stroke: url(#${gradientId});" />`
+                };
+            });
+        });
+        const topicGradients = topicLineData.map((item) => item.gradient).join("");
+        const topicLines = topicLineData.map((item) => item.line).join("");
 
-        // Every topic node is a permanent obstacle regardless of expand state,
-        // so a subtopic ring can never land on top of a neighboring topic.
+        // Every topic node is a permanent obstacle regardless of expand state, so a subtopic ring can never land on top of a neighboring topic.
         const obstacles = nodes.map((node) => ({
             x: node.x,
             y: node.y,
@@ -539,7 +547,7 @@ function initTopicNetworkMap(topics = []) {
 
         Array.from(selectedTopicIndexes).forEach((index) => {
             const topic = topics[index];
-            const parentNode = nodes[index] || { x: centerX, y: centerY };
+            const parentNode = nodes[index] || { x: centerX, y: centerY, color: 'hsl(0, 0%, 50%)' };
             const angled = getSubtopicAngles(parentNode, topic?.subtopics || []);
 
             angled.forEach(({ sub, angle, radius }) => {
@@ -550,8 +558,8 @@ function initTopicNetworkMap(topics = []) {
                 obstacles.push({ x, y, halfW, halfH });
 
                 expandedSubtopicData.push({
-                    line: `<line x1="${parentNode.x}" y1="${parentNode.y}" x2="${x}" y2="${y}" />`,
-                    markup: `<button type="button" class="network-node subtopic" data-type="subtopic" data-topic-slug="${encodeURIComponent(slugify(topic.topic))}" data-subtopic-slug="${encodeURIComponent(slugify(sub.name))}" style="left: ${x}px; top: ${y}px;">${escapeHtml(sub.name)}</button>`
+                    line: `<line x1="${parentNode.x}" y1="${parentNode.y}" x2="${x}" y2="${y}" style="stroke: ${parentNode.color};" />`,
+                    markup: `<button type="button" class="network-node subtopic" data-type="subtopic" data-topic-slug="${encodeURIComponent(slugify(topic.topic))}" data-subtopic-slug="${encodeURIComponent(slugify(sub.name))}" style="left: ${x}px; top: ${y}px; color: ${parentNode.color};">${escapeHtml(sub.name)}</button>`
                 });
             });
         });
@@ -559,13 +567,14 @@ function initTopicNetworkMap(topics = []) {
         const lines = `${topicLines}${expandedSubtopicData.map((item) => item.line).join("")}`;
 
         const nodeMarkup = nodes.map((node, index) => `
-            <button type="button" class="network-node topic${selectedTopicIndexes.has(index) ? ' selected' : ''}" data-type="topic" data-index="${index}" style="left: ${node.x}px; top: ${node.y}px;">${escapeHtml(node.label)}</button>
+            <button type="button" class="network-node topic${selectedTopicIndexes.has(index) ? ' selected' : ''}" data-type="topic" data-index="${index}" style="left: ${node.x}px; top: ${node.y}px; color: ${node.color};">${escapeHtml(node.label)}</button>
         `).join("");
 
         const subtopicMarkup = expandedSubtopicData.map((item) => item.markup).join("");
 
         map.innerHTML = `
             <svg class="network-lines" viewBox="0 0 1400 900" preserveAspectRatio="xMinYMin meet">
+                <defs>${topicGradients}</defs>
                 ${lines}
             </svg>
             ${nodeMarkup}

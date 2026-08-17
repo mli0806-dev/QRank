@@ -13,7 +13,23 @@ document.addEventListener("DOMContentLoaded", () => {
             buttonText: "signup_with"
         }
     ];
-    
+
+    const registerTerms = document.getElementById("register-terms");
+    const googleRegisterButton = document.getElementById("google-register-button");
+    const googleRegisterConsent = document.getElementById("google-register-consent");
+
+    if (registerTerms && googleRegisterButton) {
+        const syncGoogleConsentState = () => {
+            googleRegisterButton.classList.toggle("googledisabled", !registerTerms.checked);
+            if (googleRegisterConsent) {
+                googleRegisterConsent.classList.toggle("hidden", registerTerms.checked);
+            }
+        };
+
+        registerTerms.addEventListener("change", syncGoogleConsentState);
+        syncGoogleConsentState();
+    }
+
     if (loginForm) {
         loginForm.addEventListener("submit", async (e) => {
             e.preventDefault();

@@ -5,7 +5,8 @@
   "rewrites": [
     { "source": "/api/:path*", "destination": "/api" },
     { "source": "/topics/:path*", "destination": "/topics/index.html" },
-    { "source": "/profile/:path*", "destination": "/profile/index.html" }
+    { "source": "/profile/:path*", "destination": "/profile/index.html" },
+    { "source": "/competitions/:id", "destination": "/competitions/detail/index.html" }
   ],
   "crons": [
     { "path": "/api/cron/cleanup", "schedule": "0 3 * * *" }
