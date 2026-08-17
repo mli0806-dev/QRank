@@ -1,3 +1,10 @@
+(function loadVercelSpeedInsights() {
+    const script = document.createElement("script");
+    script.defer = true;
+    script.src = "/_vercel/speed-insights/script.js";
+    document.head.appendChild(script);
+})();
+
 function toggleDropdown(button) {
     const dropdown = button.parentElement.nextElementSibling
 
@@ -340,6 +347,11 @@ function initTopicNetworkMap(topics = []) {
 
     const NODE_HALF_HEIGHT = 23; // matches .network-node's min-height: 46px
     const NODE_GAP = 40; // minimum clearance between any two node edges, anywhere on the map
+    const SUBTOPIC_CONE_HALF_ANGLE = Math.PI / 3; 
+    function clampAngleToCone(angle, centerAngle, halfAngle) {
+        const diff = Math.atan2(Math.sin(angle - centerAngle), Math.cos(angle - centerAngle));
+        return centerAngle + Math.max(-halfAngle, Math.min(halfAngle, diff));
+    }
 
     function nodeHalfWidth(label, horizontalPadding) {
         return Math.max(140, measureLabelWidth(label) + horizontalPadding) / 2;
@@ -368,16 +380,36 @@ function initTopicNetworkMap(topics = []) {
         : 0;
     const outerRadius = Math.max(320, requiredRadius);
 
+    // Light mode sits on a white background, so the same 80% lightness used in dark mode
+    // (readable against near-black) would wash out to near-invisible -- drop the value in light mode.
+    function getTopicLightness() {
+        return document.body.classList.contains('dark') ? 80 : 40;
+    }
+
+    function getNeutralLightness() {
+        return document.body.classList.contains('dark') ? 50 : 35;
+    }
+
     const nodes = topics.map((topic, index) => {
         const angle = (index / totalTopics) * Math.PI * 2;
         const x = centerX + Math.cos(angle) * outerRadius;
         const y = centerY + Math.sin(angle) * outerRadius;
         const hue = (index / totalTopics) * 360;
-        return { x, y, label: topicLabels[index], color: `hsl(${hue}, 50%, 80%)` };
+        return { x, y, label: topicLabels[index], slug: slugify(topic.topic), hue, color: `hsl(${hue}, 50%, ${getTopicLightness()}%)` };
     });
 
     if (!nodes.length) {
-        nodes.push({ x: centerX, y: centerY, label: 'No topics found', color: 'hsl(0, 0%, 50%)' });
+        nodes.push({ x: centerX, y: centerY, label: 'No topics found', color: `hsl(0, 0%, ${getNeutralLightness()}%)` });
+    }
+
+    function refreshNodeColors() {
+        const topicLightness = getTopicLightness();
+        const neutralLightness = getNeutralLightness();
+        nodes.forEach((node) => {
+            node.color = typeof node.hue === 'number'
+                ? `hsl(${node.hue}, 50%, ${topicLightness}%)`
+                : `hsl(0, 0%, ${neutralLightness}%)`;
+        });
     }
 
     const selectedTopicIndexes = new Set();
@@ -422,15 +454,43 @@ function initTopicNetworkMap(topics = []) {
         handleMapClick(ev);
     });
 
+    wrapper.addEventListener("contextmenu", (event) => {
+        let target = event.target;
+        if (!(target instanceof Element)) {
+            target = target?.parentElement;
+        }
+
+        const node = target?.closest(".network-node");
+        if (!node) {
+            return;
+        }
+
+        event.preventDefault();
+
+        const type = node.dataset.type;
+        if (type === "topic") {
+            const topicSlug = node.dataset.topicSlug;
+            if (topicSlug) {
+                window.location.href = `/topics/${topicSlug}`;
+            }
+        } else if (type === "subtopic") {
+            const topicSlug = node.dataset.topicSlug;
+            const subtopicSlug = node.dataset.subtopicSlug;
+            if (topicSlug && subtopicSlug) {
+                window.location.href = `/topics/${topicSlug}/${subtopicSlug}`;
+            }
+        }
+    });
+
     // Pack a topic's own subtopics ring by ring, same as before: each node's
     // angular width is its real label width converted to an angle at that
     // ring's radius, so a ring never runs out of room mid-label. Returns
     // angle/radius instead of committing to x/y, because final placement
     // also depends on every OTHER node currently on the map (see renderMap).
     function getSubtopicAngles(parentNode, subtopics) {
-        const baseRadius = 160;
-        const ringGap = 100;
-        const maxRingArc = Math.PI * 1.9;
+        const baseRadius = 200;
+        const ringGap = 150;
+        const maxRingArc = SUBTOPIC_CONE_HALF_ANGLE * 2;
         const nodeHorizontalPadding = 36; // matches .network-node.subtopic's 18px left/right padding
         const parentAngle = Math.atan2(parentNode.y - centerY, parentNode.x - centerX);
         const layout = [];
@@ -468,6 +528,11 @@ function initTopicNetworkMap(topics = []) {
 
     renderMap();
 
+    document.addEventListener("themechange", () => {
+        refreshNodeColors();
+        renderMap();
+    });
+
     let scale = 1;
     let originX = 0;
     let originY = 0;
@@ -493,15 +558,17 @@ function initTopicNetworkMap(topics = []) {
     // synthetic 40-subtopics-on-one-topic stress test). Trying a small fan
     // of nearby angles at each radius first finds a genuinely free spot far
     // more often, and keeps most nodes close to their intended position.
-    const COLLISION_SEARCH_ANGLE_OFFSETS = [0, 0.15, -0.15, 0.3, -0.3, 0.5, -0.5, 0.8, -0.8];
+    const COLLISION_SEARCH_ANGLE_OFFSETS = [0, 0.15, -0.15, 0.3, -0.3, 0.5, -0.5, 0.8, -0.8, 1.0, -1.0];
 
-    function resolveSubtopicPosition(parentNode, initialAngle, initialRadius, halfW, halfH, obstacles) {
+    function resolveSubtopicPosition(parentNode, initialAngle, initialRadius, halfW, halfH, obstacles, parentAngle) {
         const maxRadius = initialRadius + 40 * 20;
         let radius = initialRadius;
 
         while (radius <= maxRadius) {
             for (const offset of COLLISION_SEARCH_ANGLE_OFFSETS) {
-                const angle = initialAngle + offset;
+                // Clamped so the collision search can push a crowded node further OUT,
+                // but never wider than the 60-degree cone around the parent's radial.
+                const angle = clampAngleToCone(initialAngle + offset, parentAngle, SUBTOPIC_CONE_HALF_ANGLE);
                 const x = parentNode.x + Math.cos(angle) * radius;
                 const y = parentNode.y + Math.sin(angle) * radius;
                 if (!obstacles.some((o) => boxesOverlap({ x, y, halfW, halfH }, o))) {
@@ -514,9 +581,10 @@ function initTopicNetworkMap(topics = []) {
         // Every attempt collided -- extremely unlikely, but rather than loop
         // forever, place it at the final radius on its original angle and
         // accept the overlap.
+        const fallbackAngle = clampAngleToCone(initialAngle, parentAngle, SUBTOPIC_CONE_HALF_ANGLE);
         return {
-            x: parentNode.x + Math.cos(initialAngle) * radius,
-            y: parentNode.y + Math.sin(initialAngle) * radius
+            x: parentNode.x + Math.cos(fallbackAngle) * radius,
+            y: parentNode.y + Math.sin(fallbackAngle) * radius
         };
     }
 
@@ -547,13 +615,14 @@ function initTopicNetworkMap(topics = []) {
 
         Array.from(selectedTopicIndexes).forEach((index) => {
             const topic = topics[index];
-            const parentNode = nodes[index] || { x: centerX, y: centerY, color: 'hsl(0, 0%, 50%)' };
+            const parentNode = nodes[index] || { x: centerX, y: centerY, color: `hsl(0, 0%, ${getNeutralLightness()}%)` };
+            const parentAngle = Math.atan2(parentNode.y - centerY, parentNode.x - centerX);
             const angled = getSubtopicAngles(parentNode, topic?.subtopics || []);
 
             angled.forEach(({ sub, angle, radius }) => {
                 const halfW = nodeHalfWidth(sub.name, 36);
                 const halfH = NODE_HALF_HEIGHT;
-                const { x, y } = resolveSubtopicPosition(parentNode, angle, radius, halfW, halfH, obstacles);
+                const { x, y } = resolveSubtopicPosition(parentNode, angle, radius, halfW, halfH, obstacles, parentAngle);
 
                 obstacles.push({ x, y, halfW, halfH });
 
@@ -567,7 +636,7 @@ function initTopicNetworkMap(topics = []) {
         const lines = `${topicLines}${expandedSubtopicData.map((item) => item.line).join("")}`;
 
         const nodeMarkup = nodes.map((node, index) => `
-            <button type="button" class="network-node topic${selectedTopicIndexes.has(index) ? ' selected' : ''}" data-type="topic" data-index="${index}" style="left: ${node.x}px; top: ${node.y}px; color: ${node.color};">${escapeHtml(node.label)}</button>
+            <button type="button" class="network-node topic${selectedTopicIndexes.has(index) ? ' selected' : ''}" data-type="topic" data-index="${index}" data-topic-slug="${encodeURIComponent(node.slug || '')}" style="left: ${node.x}px; top: ${node.y}px; color: ${node.color};">${escapeHtml(node.label)}</button>
         `).join("");
 
         const subtopicMarkup = expandedSubtopicData.map((item) => item.markup).join("");
