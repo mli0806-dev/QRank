@@ -1162,7 +1162,7 @@ async function pingServer() {
 }
 
 // Generic per-topic background: any topic slug tries to load
-// /images/topics/{slug}.png. Topics without a matching image just render
+// /images/topics/{slug}.webp. Topics without a matching image just render
 // with no background -- a failed background-image request degrades silently.
 function applyTopicBackground(topicSlug) {
     const main = document.querySelector("main");
@@ -1172,7 +1172,7 @@ function applyTopicBackground(topicSlug) {
 
     if (topicSlug) {
         main.classList.add("topicbg");
-        main.style.setProperty("--topic-bg-image", `url(/images/topics/${encodeURIComponent(topicSlug)}.png)`);
+        main.style.setProperty("--topic-bg-image", `url(/images/topics/${encodeURIComponent(topicSlug)}.webp)`);
     } else {
         main.classList.remove("topicbg");
         main.style.removeProperty("--topic-bg-image");
@@ -1236,6 +1236,20 @@ async function updateTopicCount() {
         }
     } catch (error) {
         console.error('Failed to fetch topic count:', error);
+    }
+}
+
+async function updateUserCount() {
+    try {
+        const response = await fetch('/api/users/count');
+        const data = await response.json();
+        const userCountElement = document.getElementById('user-count');
+
+        if (userCountElement && typeof data.count === 'number') {
+            userCountElement.textContent = data.count.toLocaleString();
+        }
+    } catch (error) {
+        console.error('Failed to fetch user count:', error);
     }
 }
 
@@ -1486,6 +1500,7 @@ document.addEventListener("DOMContentLoaded", () => {
         courseLoad();
         updateProblemSetCount();
         updateTopicCount();
+        updateUserCount();
     }
     pingServer();
 });

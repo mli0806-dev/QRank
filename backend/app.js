@@ -100,7 +100,17 @@ app.use((req, res, next) => {
     next();
 });
 
-app.use(express.static(frontendPath));
+app.use(express.static(frontendPath, {
+    setHeaders: (res, filePath) => {
+        // Images change rarely and have no cache-busting filename hash, so a
+        // week-long cache is safe. HTML/JS/CSS are excluded -- those change
+        // constantly during active development and aren't hashed either, so
+        // caching them the same way would serve stale code after a deploy.
+        if (/\.(png|jpe?g|webp|svg|gif|ico)$/i.test(filePath)) {
+            res.setHeader("Cache-Control", "public, max-age=604800");
+        }
+    }
+}));
 app.use(cors());
 app.use(express.json());
 app.use(cookieParser(process.env.COOKIE_SECRET));
@@ -562,6 +572,16 @@ app.get("/api/topics/count", async (req, res) => {
     } catch (err) {
         console.error(err);
         res.status(500).json({ message: "Failed to fetch topic count." });
+    }
+});
+
+app.get("/api/users/count", async (req, res) => {
+    try {
+        const [rows] = await db.query("SELECT COUNT(*) AS count FROM users");
+        res.json({ count: rows[0]?.count || 0 });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ message: "Failed to fetch user count." });
     }
 });
 
