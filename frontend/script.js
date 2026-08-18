@@ -849,7 +849,7 @@ function renderProblemSetResults(problemSets, searchTerm = "") {
     }
 
     container.innerHTML = `
-        <div class="problemsetgrid">
+        <div class="problemsetlist">
             ${problemSets.map((problemSet) => `
                 <a class="problemsetcard" href="/problems/${encodeURIComponent(problemSet.id)}">
                     <p class="problemsetid">Problem Set ID #${escapeHtml(problemSet.id)}</p>
@@ -1281,6 +1281,49 @@ async function checkUserStatus() {
     }
 }
 
+async function initSuggestionFormSelects() {
+    const topicSelect = document.getElementById("suggest-topic");
+    const subtopicSelect = document.getElementById("suggest-subtopic");
+    const tagsSelect = document.getElementById("suggest-tags");
+
+    if (!topicSelect || !subtopicSelect || !tagsSelect) {
+        return;
+    }
+
+    let topics = [];
+
+    try {
+        const response = await fetch('/api/topics');
+        topics = await response.json();
+    } catch (error) {
+        console.error('Failed to load topics for suggestion form:', error);
+    }
+
+    const populateSubtopics = (topicName) => {
+        const selectedTopic = topics.find((topic) => topic.topic === topicName);
+        const subtopics = selectedTopic ? selectedTopic.subtopics : [];
+
+        subtopicSelect.innerHTML = subtopics.length
+            ? subtopics.map((subtopic) => `<option value="${escapeHtml(subtopic.name)}">${escapeHtml(subtopic.name)}</option>`).join('')
+            : '<option value="" disabled selected>No subtopics available</option>';
+    };
+
+    topicSelect.innerHTML = topics.length
+        ? '<option value="" disabled selected>Select a topic</option>' +
+            topics.map((topic) => `<option value="${escapeHtml(topic.topic)}">${escapeHtml(topic.topic)}</option>`).join('')
+        : '<option value="" disabled selected>No topics available</option>';
+
+    topicSelect.addEventListener("change", () => populateSubtopics(topicSelect.value));
+
+    try {
+        const response = await fetch('/api/tags');
+        const { tags } = await response.json();
+        tagsSelect.innerHTML = (tags || []).map((tag) => `<option value="${escapeHtml(tag)}">${escapeHtml(tag)}</option>`).join('');
+    } catch (error) {
+        console.error('Failed to load tags for suggestion form:', error);
+    }
+}
+
 async function submitProblemSetSuggestion(event) {
     if (event) {
         event.preventDefault();
@@ -1300,11 +1343,14 @@ async function submitProblemSetSuggestion(event) {
         return;
     }
 
+    const selectedTags = Array.from(document.getElementById("suggest-tags").selectedOptions)
+        .map((option) => option.value);
+
     const payload = {
         name: document.getElementById("suggest-name").value.trim(),
         topic: document.getElementById("suggest-topic").value.trim(),
         subtopic: document.getElementById("suggest-subtopic").value.trim(),
-        tags: document.getElementById("suggest-tags").value.trim(),
+        tags: selectedTags.join(','),
         description: document.getElementById("suggest-description").value.trim(),
         problems: JSON.stringify(problems),
         submitter: null
@@ -1346,12 +1392,19 @@ function serializeProblemItems() {
     return items.map((item) => {
         const prompt = item.querySelector('.problem-prompt').value.trim();
         const type = item.querySelector('.problem-type').value;
-        const answer = item.querySelector('.problem-answer').value.trim();
-        const choices = type === 'multiple_choice'
-            ? Array.from(item.querySelectorAll('.choice-input')).map(choice => choice.value.trim()).filter(Boolean)
-            : [];
 
-        return { prompt, type, choices, answer };
+        if (type === 'multiple_choice') {
+            const choiceRows = Array.from(item.querySelectorAll('.choice-row'));
+            const choices = choiceRows.map(row => row.querySelector('.choice-input').value.trim()).filter(Boolean);
+            const checkedRadio = item.querySelector('.choice-correct-radio:checked');
+            const checkedRow = checkedRadio ? checkedRadio.closest('.choice-row') : null;
+            const answer = checkedRow ? checkedRow.querySelector('.choice-input').value.trim() : '';
+
+            return { prompt, type, choices, answer };
+        }
+
+        const answer = item.querySelector('.problem-answer').value.trim();
+        return { prompt, type, choices: [], answer };
     }).filter(problem => problem.prompt && problem.type && problem.answer && (problem.type !== 'multiple_choice' || problem.choices.length > 0));
 }
 
@@ -1362,46 +1415,121 @@ function removeProblemItem(button) {
     }
 }
 
+const CHOICE_LETTERS = ['A', 'B', 'C', 'D', 'E'];
+const MIN_CHOICES = 2;
+const MAX_CHOICES = CHOICE_LETTERS.length;
+let problemItemCounter = 0;
+
+function renumberChoices(item) {
+    const rows = Array.from(item.querySelectorAll('.choice-row'));
+    rows.forEach((row, index) => {
+        const letter = CHOICE_LETTERS[index];
+        const letterLabel = row.querySelector('.choice-letter-label');
+        const input = row.querySelector('.choice-input');
+
+        if (letterLabel) {
+            letterLabel.textContent = `${letter}.`;
+        }
+        if (input) {
+            input.placeholder = `Choice ${letter}`;
+        }
+    });
+}
+
+function createChoiceRow(groupName) {
+    const row = document.createElement('div');
+    row.className = 'choice-row';
+    row.innerHTML = `
+        <label class="choice-letter">
+            <input type="radio" name="${groupName}" class="choice-correct-radio" title="Mark as the correct answer" required>
+            <span class="choice-letter-label"></span>
+        </label>
+        <input class="inputs choice-input" type="text" placeholder="Choice" required>
+    `;
+    return row;
+}
+
+function addChoiceRow(item) {
+    const choiceList = item.querySelector('.problem-choice-list');
+    if (!choiceList) {
+        return;
+    }
+
+    const rows = choiceList.querySelectorAll('.choice-row');
+    if (rows.length >= MAX_CHOICES) {
+        return;
+    }
+
+    choiceList.appendChild(createChoiceRow(choiceList.dataset.groupName));
+    renumberChoices(item);
+}
+
+function removeChoiceRow(item) {
+    const choiceList = item.querySelector('.problem-choice-list');
+    if (!choiceList) {
+        return;
+    }
+
+    const rows = choiceList.querySelectorAll('.choice-row');
+    if (rows.length <= MIN_CHOICES) {
+        return;
+    }
+
+    rows[rows.length - 1].remove();
+    renumberChoices(item);
+}
+
 function updateProblemItemTypeFields(item) {
     const type = item.querySelector('.problem-type').value;
     const choiceLabel = item.querySelector('.problem-choice-label');
     const choiceList = item.querySelector('.problem-choice-list');
+    const choiceButtons = item.querySelector('.choice-buttons');
     const answerLabel = item.querySelector('.problem-answer-label');
     const answerInput = item.querySelector('.problem-answer');
-    const choiceInputs = Array.from(item.querySelectorAll('.choice-input'));
+    const correctRadios = Array.from(item.querySelectorAll('.choice-correct-radio'));
 
     if (type === 'free_response') {
         if (choiceLabel) {
-            choiceLabel.textContent = 'Acceptable Answers';
+            choiceLabel.style.display = 'none';
         }
         if (choiceList) {
             choiceList.style.display = 'none';
         }
-        choiceInputs.forEach(input => {
-            input.required = false;
+        if (choiceButtons) {
+            choiceButtons.style.display = 'none';
+        }
+        correctRadios.forEach(radio => {
+            radio.required = false;
         });
         if (answerLabel) {
-            answerLabel.style.display = 'None';
+            answerLabel.style.display = '';
+            answerLabel.textContent = 'Acceptable Answers';
         }
         if (answerInput) {
+            answerInput.style.display = '';
+            answerInput.required = true;
             answerInput.placeholder = 'Enter acceptable answers separated by commas:';
         }
     } else {
         if (choiceLabel) {
-            choiceLabel.textContent = 'Answer Choices';
+            choiceLabel.style.display = '';
+            choiceLabel.textContent = 'Answer Choices (select the correct one)';
         }
         if (choiceList) {
             choiceList.style.display = '';
         }
-        choiceInputs.forEach(input => {
-            input.required = true;
+        if (choiceButtons) {
+            choiceButtons.style.display = '';
+        }
+        correctRadios.forEach(radio => {
+            radio.required = true;
         });
         if (answerLabel) {
-            answerLabel.style.display = '';
-            answerLabel.textContent = 'Correct Answer';
+            answerLabel.style.display = 'none';
         }
         if (answerInput) {
-            answerInput.placeholder = 'Enter the correct choice:';
+            answerInput.style.display = 'none';
+            answerInput.required = false;
         }
     }
 }
@@ -1413,6 +1541,9 @@ function addProblemItem() {
     }
 
     const problemIndex = container.children.length + 1;
+    problemItemCounter += 1;
+    const groupName = `correct-choice-${problemItemCounter}`;
+
     const template = document.createElement('div');
     template.className = 'problem-item';
     template.innerHTML = `
@@ -1427,20 +1558,36 @@ function addProblemItem() {
         </select>
         <label class="aboutustitle">Prompt</label>
         <textarea class="inputs problem-prompt" rows="4" placeholder="Enter here:" required></textarea>
-        <label class="aboutustitle problem-choice-label">Answer Choices</label>
-        <div class="problem-choice-list">
-            <input class="inputs choice-input" type="text" placeholder="Choice A" required>
-            <input class="inputs choice-input" type="text" placeholder="Choice B" required>
-            <input class="inputs choice-input" type="text" placeholder="Choice C" required>
-            <input class="inputs choice-input" type="text" placeholder="Choice D" required>
+        <label class="aboutustitle problem-choice-label">Answer Choices (select the correct one)</label>
+        <div class="problem-choice-list" data-group-name="${groupName}"></div>
+        <div class="choice-buttons">
+            <button type="button" class="authsubmit add-choice-button">Add answer choice</button>
+            <button type="button" class="authsubmit subtract-choice-button">Subtract answer choice</button>
         </div>
-        <label class="aboutustitle problem-answer-label">Correct Answer</label>
-        <input class="inputs problem-answer" type="text" placeholder="Enter the correct choice:" required>
+        <label class="aboutustitle problem-answer-label">Acceptable Answers</label>
+        <input class="inputs problem-answer" type="text" placeholder="Enter acceptable answers separated by commas:">
     `;
 
     container.appendChild(template);
+
+    const choiceList = template.querySelector('.problem-choice-list');
+    for (let i = 0; i < 4; i += 1) {
+        choiceList.appendChild(createChoiceRow(groupName));
+    }
+    renumberChoices(template);
+
     const removeButton = template.querySelector('.remove-problem-button');
     removeButton.addEventListener('click', () => removeProblemItem(removeButton));
+
+    const addChoiceButton = template.querySelector('.add-choice-button');
+    if (addChoiceButton) {
+        addChoiceButton.addEventListener('click', () => addChoiceRow(template));
+    }
+
+    const subtractChoiceButton = template.querySelector('.subtract-choice-button');
+    if (subtractChoiceButton) {
+        subtractChoiceButton.addEventListener('click', () => removeChoiceRow(template));
+    }
 
     const typeSelect = template.querySelector('.problem-type');
     if (typeSelect) {
@@ -1491,6 +1638,7 @@ document.addEventListener("DOMContentLoaded", () => {
             addProblemButton.addEventListener("click", addProblemItem);
         }
 
+        initSuggestionFormSelects();
         addProblemItem();
     } else if (window.location.pathname.startsWith("/topics/network")) {
         renderTopicNetworkPage();

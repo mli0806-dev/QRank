@@ -101,8 +101,23 @@ async function updateSuggestionStatus(id, status) {
             return;
         }
 
-        const { createdProblemSetId } = await response.json();
+        const data = await response.json();
         const card = document.getElementById(`suggestion-${id}`);
+
+        // Rejected suggestions are deleted server-side, so the card should just
+        // disappear rather than show a "rejected" status on a record that no
+        // longer exists.
+        if (data.deleted) {
+            if (card) {
+                card.remove();
+            }
+            const container = document.getElementById("suggestionslist");
+            if (container && !container.querySelector(".suggestioncard")) {
+                container.innerHTML = '<p>No suggestions submitted yet.</p>';
+            }
+            return;
+        }
+
         const statusLabel = card ? card.querySelector(".suggestionstatus") : null;
         const liveLink = card ? card.querySelector(".suggestionlivelink") : null;
 
@@ -110,7 +125,7 @@ async function updateSuggestionStatus(id, status) {
             statusLabel.textContent = status;
         }
         if (liveLink) {
-            liveLink.innerHTML = renderLiveLink(createdProblemSetId);
+            liveLink.innerHTML = renderLiveLink(data.createdProblemSetId);
         }
     } catch (error) {
         console.error("Failed to update suggestion status:", error);

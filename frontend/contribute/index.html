@@ -35,13 +35,17 @@
                     <input id="suggest-name" class="inputs" type="text" placeholder="Example: Algebra II Review" required>
 
                     <label class="aboutustitle" for="suggest-topic">Topic</label>
-                    <input id="suggest-topic" class="inputs" type="text" placeholder="Example: Algebra" required>
+                    <select id="suggest-topic" class="inputs" required>
+                        <option value="" disabled selected>Select a topic</option>
+                    </select>
 
                     <label class="aboutustitle" for="suggest-subtopic">Subtopic</label>
-                    <input id="suggest-subtopic" class="inputs" type="text" placeholder="Example: Quadratic Functions" required>
+                    <select id="suggest-subtopic" class="inputs" required>
+                        <option value="" disabled selected>Select a topic first</option>
+                    </select>
 
-                    <label class="aboutustitle" for="suggest-tags">Tags</label>
-                    <input id="suggest-tags" class="inputs" type="text" placeholder="comma separated tags">
+                    <label class="aboutustitle" for="suggest-tags">Tags (optional -- the subtopic's course tag is added automatically)</label>
+                    <select id="suggest-tags" class="inputs" multiple size="6"></select>
 
                     <label class="aboutustitle" for="suggest-description">Description</label>
                     <textarea id="suggest-description" class="inputs" rows="4" placeholder="Brief description of the set"></textarea>

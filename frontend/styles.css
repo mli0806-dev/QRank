@@ -78,6 +78,7 @@ a, button {
   gap: 30px;
   font-size: 14px;
   align-items: center;
+  margin: 0
 }
 
 .tabitems {
@@ -542,7 +543,13 @@ main.topicbg {
 .problemsetgrid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-  gap: 16px;
+  gap: 24px;
+}
+
+.problemsetlist {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
 }
 
 .problemsetcard {
@@ -968,6 +975,8 @@ main.topicbg {
   width: fit-content;
   border: none;
   cursor: pointer;
+  border: 1px solid var(--border);
+  padding: 10px 14px;
 }
 
 .autherrorhidden {
@@ -1048,6 +1057,7 @@ main.topicbg {
   color: var(--text);
   caret-color: var(--text);
   border: 1px solid var(--border);
+  padding: 6px 8px;
 }
 
 .inputs.profilebio {
@@ -1134,9 +1144,40 @@ main.topicbg {
 }
 
 .problem-choice-list {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-  gap: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.choice-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.choice-letter {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 500;
+  flex-shrink: 0;
+}
+
+.choice-letter-label {
+  width: 18px;
+}
+
+.choice-row .choice-input {
+  flex: 1;
+}
+
+.choice-buttons {
+  display: flex;
+  gap: 10px;
+}
+
+.choice-buttons button {
+  padding: 8px 14px;
 }
 
 .remove-problem-button {

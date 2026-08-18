@@ -69,6 +69,48 @@ function generateVerificationCode() {
     return String(crypto.randomInt(100000, 1000000));
 }
 
+// Subtopics carry the real course codes for their curriculum (e.g. "IM1",
+// "XLPHYS", "AP Calc BC" -- see subtopics.tags). Any problem set assigned to
+// that subtopic should pick those up automatically rather than relying on
+// whoever created it to type them in by hand.
+async function getCourseTagsForSubtopic(queryable, topic, subtopic) {
+    if (!topic || !subtopic) {
+        return [];
+    }
+
+    const [rows] = await queryable.query(
+        `
+        SELECT subtopics.tags
+        FROM subtopics
+        JOIN topics ON topics.id = subtopics.topic_id
+        WHERE topics.name = ? AND subtopics.name = ?
+        LIMIT 1
+        `,
+        [topic, subtopic]
+    );
+
+    if (rows.length === 0 || !rows[0].tags) {
+        return [];
+    }
+
+    return rows[0].tags.split(',').map(tag => tag.trim()).filter(Boolean);
+}
+
+function mergeTags(manualTags, courseTags) {
+    const seen = new Set();
+    const merged = [];
+
+    for (const tag of [...manualTags, ...courseTags]) {
+        const key = tag.toLowerCase();
+        if (tag && !seen.has(key)) {
+            seen.add(key);
+            merged.push(tag);
+        }
+    }
+
+    return merged.join(',');
+}
+
 async function sendPasswordResetEmail(email, username, code) {
     if (!mailer) {
         throw new Error("SMTP is not configured.");
@@ -281,7 +323,7 @@ app.patch("/api/admin/problem-set-suggestions/:id", auth.requireAdmin, async (re
         await connection.beginTransaction();
 
         const [suggestionRows] = await connection.query(
-            "SELECT id, name, description, topic, subtopic, tags, problems, created_problem_set_id FROM problem_set_suggestions WHERE id = ? LIMIT 1 FOR UPDATE",
+            "SELECT id, name, description, topic, subtopic, tags, problems FROM problem_set_suggestions WHERE id = ? LIMIT 1 FOR UPDATE",
             [id]
         );
 
@@ -291,9 +333,15 @@ app.patch("/api/admin/problem-set-suggestions/:id", auth.requireAdmin, async (re
         }
 
         const suggestion = suggestionRows[0];
-        let createdProblemSetId = suggestion.created_problem_set_id;
 
-        if (status === "approved" && !createdProblemSetId) {
+        if (status === "rejected") {
+            // Rejected suggestions don't hang around for review clutter -- delete outright.
+            await connection.query("DELETE FROM problem_set_suggestions WHERE id = ?", [id]);
+            await connection.commit();
+            return res.json({ message: "Suggestion rejected and deleted.", deleted: true });
+        }
+
+        if (status === "approved") {
             let parsedProblems;
             try {
                 parsedProblems = JSON.parse(suggestion.problems);
@@ -310,12 +358,19 @@ app.patch("/api/admin/problem-set-suggestions/:id", auth.requireAdmin, async (re
                 return res.status(400).json({ message: "Suggestion has no valid problems to create." });
             }
 
+            const manualTags = (suggestion.tags || "")
+                .split(',')
+                .map(tag => tag.trim())
+                .filter(Boolean);
+            const courseTags = await getCourseTagsForSubtopic(connection, suggestion.topic, suggestion.subtopic);
+            const finalTags = mergeTags(manualTags, courseTags);
+
             const [problemSetResult] = await connection.query(
                 "INSERT INTO problem_sets (name, description, topic, subtopic, tags) VALUES (?, ?, ?, ?, ?)",
-                [suggestion.name, suggestion.description, suggestion.topic, suggestion.subtopic, suggestion.tags]
+                [suggestion.name, suggestion.description, suggestion.topic, suggestion.subtopic, finalTags]
             );
 
-            createdProblemSetId = problemSetResult.insertId;
+            const createdProblemSetId = problemSetResult.insertId;
 
             for (let position = 0; position < validProblems.length; position += 1) {
                 const problem = validProblems[position];
@@ -329,16 +384,23 @@ app.patch("/api/admin/problem-set-suggestions/:id", auth.requireAdmin, async (re
                     [createdProblemSetId, position, type, String(problem.prompt), choices, String(problem.answer)]
                 );
             }
+
+            // Once published, this suggestion has done its job -- it's now a real
+            // problem_sets row, so there's no reason to keep the suggestion around too.
+            await connection.query("DELETE FROM problem_set_suggestions WHERE id = ?", [id]);
+            await connection.commit();
+            return res.json({ message: "Suggestion approved and published.", createdProblemSetId, deleted: true });
         }
 
+        // "pending" or "reviewed" -- just update the status flag, nothing to delete.
         await connection.query(
-            "UPDATE problem_set_suggestions SET status = ?, created_problem_set_id = ? WHERE id = ?",
-            [status, createdProblemSetId, id]
+            "UPDATE problem_set_suggestions SET status = ? WHERE id = ?",
+            [status, id]
         );
 
         await connection.commit();
 
-        res.json({ message: "Status updated.", createdProblemSetId });
+        res.json({ message: "Status updated." });
     } catch (err) {
         await connection.rollback();
         console.error(err);
@@ -425,11 +487,12 @@ app.post("/api/problem-sets", auth.requireAuth, async (req, res) => {
         const cleanDescription = String(description || "").trim();
         const cleanTopic = String(topic).trim();
         const cleanSubtopic = String(subtopic).trim();
-        const cleanTags = String(tags || "")
+        const manualTags = String(tags || "")
             .split(',')
             .map(tag => tag.trim())
-            .filter(Boolean)
-            .join(',');
+            .filter(Boolean);
+        const courseTags = await getCourseTagsForSubtopic(db, cleanTopic, cleanSubtopic);
+        const cleanTags = mergeTags(manualTags, courseTags);
 
         const [result] = await db.query(
             "INSERT INTO problem_sets (name, description, topic, subtopic, tags) VALUES (?, ?, ?, ?, ?)",
@@ -582,6 +645,33 @@ app.get("/api/users/count", async (req, res) => {
     } catch (err) {
         console.error(err);
         res.status(500).json({ message: "Failed to fetch user count." });
+    }
+});
+
+app.get("/api/tags", async (req, res) => {
+    try {
+        const [subtopicRows] = await db.query("SELECT tags FROM subtopics WHERE tags IS NOT NULL AND tags <> ''");
+        const [problemSetRows] = await db.query("SELECT tags FROM problem_sets WHERE tags IS NOT NULL AND tags <> ''");
+
+        const seen = new Set();
+        const tags = [];
+
+        [...subtopicRows, ...problemSetRows].forEach((row) => {
+            row.tags.split(',').map(tag => tag.trim()).filter(Boolean).forEach((tag) => {
+                const key = tag.toLowerCase();
+                if (!seen.has(key)) {
+                    seen.add(key);
+                    tags.push(tag);
+                }
+            });
+        });
+
+        tags.sort((a, b) => a.localeCompare(b));
+
+        res.json({ tags });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ message: "Failed to fetch tags." });
     }
 });
 
