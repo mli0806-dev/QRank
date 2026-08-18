@@ -52,7 +52,7 @@ a, button {
   position: sticky;
   top: 0;
   z-index: 1000;
-  border-bottom: 0.5px solid var(--border);
+  border-bottom: 1px solid var(--border);
 }
 
 .headerbox .sitetitle,
@@ -154,7 +154,7 @@ a, button {
   color: var(--text);
   transition: 0.3s ease;
   font-size: 14px;
-  border: 0.5px solid var(--border);
+  border: 1px solid var(--border);
 }
 
 .boxtitle {
@@ -181,7 +181,7 @@ a, button {
   background-color: var(--card);
   text-decoration: none;
   color: var(--text);
-  border: 0.5px solid var(--border);
+  border: 1px solid var(--border);
   overflow: hidden;
 }
 
@@ -214,12 +214,23 @@ a, button {
   padding: 50px;
 }
 
+main.topicbg {
+  background-image: var(--topic-bg-image);
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+}
+
 .topicdetailback {
   display: inline-block;
   margin-bottom: 20px;
   color: var(--text);
   text-decoration: none;
   font-size: 18px;
+  background-color: var(--card);
+  padding: 10px 14px;
+  border: 1px solid var(--border);
+  opacity: 0.9;
 }
 
 .topicdetailtitle {
@@ -227,6 +238,11 @@ a, button {
   margin-bottom: 20px;
   font-size: 32px;
   font-weight: 400;
+  background-color: var(--card);
+  padding: 12px 16px;
+  border: 1px solid var(--border);
+  width: fit-content;
+  opacity: 0.9;
 }
 
 .topicdetailgrid {
@@ -244,7 +260,8 @@ a, button {
   color: var(--text);
   text-decoration: none;
   min-height: 120px;
-  border: 0.5px solid var(--border);
+  border: 1px solid var(--border);
+  opacity: 0.9;
 }
 
 .topicdetailitemtitle {
@@ -264,7 +281,7 @@ a, button {
   background-color: var(--card);
   display: flex;
   flex-direction: column;
-  border: 0.5px solid var(--border);
+  border: 1px solid var(--border);
 }
 
 .topicdetailtext {
@@ -321,7 +338,7 @@ a, button {
 .network-exit-button,
 .network-reset-button {
   padding: 10px 16px;
-  border: 0.5px solid var(--border);
+  border: 1px solid var(--border);
   color: var(--text);
   cursor: pointer;
   font-weight: 400;
@@ -348,7 +365,7 @@ a, button {
   overflow: auto;
   padding: 18px 20px;
   background-color: var(--card);
-  border: 0.5px solid var(--border);
+  border: 1px solid var(--border);
   color: var(--text);
   z-index: 2;
   box-sizing: border-box;
@@ -446,7 +463,7 @@ a, button {
 .network-reset-button,
 .network-collapse-button,
 .network-exit-button {
-  border: 0.5px solid var(--border);
+  border: 1px solid var(--border);
   background: var(--card);
   color: var(--text);
   padding: 8px 12px;
@@ -469,7 +486,7 @@ a, button {
   top: 20px;
   padding: 10px 14px;
   background-color: var(--card);
-  border: 0.5px solid var(--border);
+  border: 1px solid var(--border);
   color: var(--text);
   font-size: 14px;
   max-width: 300px;
@@ -481,7 +498,7 @@ a, button {
   margin: 40px auto 0;
   padding: 24px;
   background-color: var(--card);
-  border: 0.5px solid var(--border);  
+  border: 1px solid var(--border);  
 }
 
 .rankingsearchform {
@@ -519,7 +536,7 @@ a, button {
   margin: 40px auto 0;
   padding: 24px;
   background-color: var(--card);
-  border: 0.5px solid var(--border);
+  border: 1px solid var(--border);
 }
 
 .problemsetgrid {
@@ -535,13 +552,51 @@ a, button {
   flex-direction: column;
   gap: 12px;
   min-height: 160px;
-  border: 0.5px solid var(--border);
+  border: 1px solid var(--border);
+}
+
+.suggestioncard {
+  background-color: var(--card);
+  padding: 20px;
+  margin-top: 20px;
+  border: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.suggestioncard p {
+  margin: 0;
+}
+
+.suggestionproblem {
+  background-color: var(--bg);
+  padding: 12px;
+  border: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.suggestionactions {
+  display: flex;
+  gap: 10px;
+  margin-top: 8px;
+}
+
+.suggestionactions button {
+  padding: 8px 14px;
+  border: 1px solid var(--border);
+  background-color: var(--bg);
+  color: var(--text);
+  cursor: pointer;
+  font-family: inherit;
 }
 
 .problemsetid {
   font-size: 16px;
   background-color: var(--card);
-  border: 0.5px solid var(--border);
+  border: 1px solid var(--border);
   width: fit-content;
   padding: 4px 8px;
 }
@@ -555,6 +610,48 @@ a, button {
 .problemsetcard p {
   margin: 0;
   line-height: 1.5;
+}
+
+.problemtakeitem {
+  background-color: var(--card);
+  padding: 20px;
+  margin-top: 20px;
+  border: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.problemtakeitem.problemtakecorrect {
+  border-color: rgb(60, 160, 90);
+}
+
+.problemtakeitem.problemtakeincorrect {
+  border-color: rgb(190, 70, 70);
+}
+
+.problemtakeprompt {
+  margin: 0;
+  font-size: 18px;
+}
+
+.problemtakeinput {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.problemtakechoice {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 16px;
+}
+
+.problemtakefeedback {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 500;
 }
 
 .problemsetformpanel {
@@ -616,7 +713,7 @@ a, button {
   padding: 20px;
   background-color: var(--card);
   box-sizing: border-box;
-  border: 0.5px solid var(--border);
+  border: 1px solid var(--border);
 }
 
 .profilesectiontitle {
@@ -650,7 +747,7 @@ a, button {
   font-size: 13px;
   font-family: inherit;
   cursor: pointer;
-  border: 0.5px solid var(--border);
+  border: 1px solid var(--border);
 }
 
 .markdownbutton:hover {
@@ -685,7 +782,7 @@ a, button {
   margin-top: 0;
   padding: 20px;
   background-color: var(--card);
-  border: 0.5px solid var(--border);
+  border: 1px solid var(--border);
 }
 
 .resetform {
@@ -707,7 +804,7 @@ a, button {
   font: inherit;
   cursor: pointer;
   padding: 12px 16px;
-  border: 0.5px solid var(--border);
+  border: 1px solid var(--border);
 }
 
 .resetstatus {
@@ -776,7 +873,7 @@ a, button {
   max-width: 600px;
   background-color: var(--card);
   padding: 20px;
-  border: 0.5px solid var(--border);
+  border: 1px solid var(--border);
 }
 
 .calendarlabels {
@@ -929,7 +1026,7 @@ a, button {
 .suggestionform textarea {
   padding: 12px 14px;
   color: var(--text);
-  border: 0.5px solid var(--border);
+  border: 1px solid var(--border);
   font-size: 16px;
   font-family: inherit;
 }
@@ -950,7 +1047,7 @@ a, button {
   font-family: inherit;
   color: var(--text);
   caret-color: var(--text);
-  border: 0.5px solid var(--border);
+  border: 1px solid var(--border);
 }
 
 .inputs.profilebio {
@@ -989,7 +1086,7 @@ a, button {
   margin-top: 24px;
   padding: 20px;
   background-color: var(--card);
-  border: 0.5px solid var(--border);
+  border: 1px solid var(--border);
 }
 
 .problem-builder {
@@ -1023,7 +1120,7 @@ a, button {
 .problem-item {
   padding: 16px;
   background-color: var(--card);
-  border: 0.5px solid var(--border);
+  border: 1px solid var(--border);
   display: flex;
   flex-direction: column;
   gap: 14px;

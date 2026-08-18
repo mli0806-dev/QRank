@@ -18,10 +18,12 @@ const frontendPath = path.join(__dirname, '../frontend');
 const topicsPagePath = path.join(frontendPath, 'topics/index.html');
 const profilePagePath = path.join(frontendPath, 'profile/index.html');
 const competitionDetailPagePath = path.join(frontendPath, 'competitions/detail/index.html');
+const problemSetDetailPagePath = path.join(frontendPath, 'problems/detail/index.html');
 const notFoundPagePath = path.join(frontendPath, '404/index.html');
 const sendTopicsPage = (req, res) => res.sendFile(topicsPagePath);
 const sendProfilePage = (req, res) => res.sendFile(profilePagePath);
 const sendCompetitionDetailPage = (req, res) => res.sendFile(competitionDetailPagePath);
+const sendProblemSetDetailPage = (req, res) => res.sendFile(problemSetDetailPagePath);
 const resetCodeTtlMinutes = parseInt(process.env.RESET_CODE_TTL_MINUTES || "15", 10);
 const googleClientId = process.env.GOOGLE_CLIENT_ID || "";
 const smtpPort = parseInt(process.env.SMTP_PORT || "587", 10);
@@ -218,6 +220,124 @@ app.post("/api/problem-set-suggestions", async (req, res) => {
     }
 });
 
+app.get("/api/admin/problem-set-suggestions", auth.requireAdmin, async (req, res) => {
+    try {
+        const [rows] = await db.query(
+            "SELECT id, name, description, topic, subtopic, tags, problems, submitter, status, created_at, created_problem_set_id FROM problem_set_suggestions ORDER BY created_at DESC"
+        );
+
+        const suggestions = rows.map(row => {
+            let parsedProblems = [];
+            try {
+                parsedProblems = JSON.parse(row.problems);
+            } catch (err) {
+                parsedProblems = [];
+            }
+
+            return {
+                id: row.id,
+                name: row.name,
+                description: row.description,
+                topic: row.topic,
+                subtopic: row.subtopic,
+                tags: row.tags ? row.tags.split(',').map(t => t.trim()).filter(Boolean) : [],
+                problems: parsedProblems,
+                submitter: row.submitter,
+                status: row.status,
+                createdAt: row.created_at,
+                createdProblemSetId: row.created_problem_set_id
+            };
+        });
+
+        res.json({ suggestions });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ message: "Failed to load suggestions." });
+    }
+});
+
+app.patch("/api/admin/problem-set-suggestions/:id", auth.requireAdmin, async (req, res) => {
+    const { id } = req.params;
+    const { status } = req.body || {};
+    const validStatuses = ["pending", "reviewed", "approved", "rejected"];
+
+    if (!validStatuses.includes(status)) {
+        return res.status(400).json({ message: "Invalid status." });
+    }
+
+    const connection = await db.getConnection();
+
+    try {
+        await connection.beginTransaction();
+
+        const [suggestionRows] = await connection.query(
+            "SELECT id, name, description, topic, subtopic, tags, problems, created_problem_set_id FROM problem_set_suggestions WHERE id = ? LIMIT 1 FOR UPDATE",
+            [id]
+        );
+
+        if (suggestionRows.length === 0) {
+            await connection.rollback();
+            return res.status(404).json({ message: "Suggestion not found." });
+        }
+
+        const suggestion = suggestionRows[0];
+        let createdProblemSetId = suggestion.created_problem_set_id;
+
+        if (status === "approved" && !createdProblemSetId) {
+            let parsedProblems;
+            try {
+                parsedProblems = JSON.parse(suggestion.problems);
+            } catch (err) {
+                await connection.rollback();
+                return res.status(400).json({ message: "Suggestion's problems data is malformed and can't be approved." });
+            }
+
+            const validProblems = (Array.isArray(parsedProblems) ? parsedProblems : [])
+                .filter(problem => problem && problem.prompt && problem.answer);
+
+            if (validProblems.length === 0) {
+                await connection.rollback();
+                return res.status(400).json({ message: "Suggestion has no valid problems to create." });
+            }
+
+            const [problemSetResult] = await connection.query(
+                "INSERT INTO problem_sets (name, description, topic, subtopic, tags) VALUES (?, ?, ?, ?, ?)",
+                [suggestion.name, suggestion.description, suggestion.topic, suggestion.subtopic, suggestion.tags]
+            );
+
+            createdProblemSetId = problemSetResult.insertId;
+
+            for (let position = 0; position < validProblems.length; position += 1) {
+                const problem = validProblems[position];
+                const type = problem.type === "multiple_choice" ? "multiple_choice" : "free_response";
+                const choices = type === "multiple_choice" && Array.isArray(problem.choices)
+                    ? JSON.stringify(problem.choices)
+                    : null;
+
+                await connection.query(
+                    "INSERT INTO problems (problem_set_id, position, type, prompt, choices, answer) VALUES (?, ?, ?, ?, ?, ?)",
+                    [createdProblemSetId, position, type, String(problem.prompt), choices, String(problem.answer)]
+                );
+            }
+        }
+
+        await connection.query(
+            "UPDATE problem_set_suggestions SET status = ?, created_problem_set_id = ? WHERE id = ?",
+            [status, createdProblemSetId, id]
+        );
+
+        await connection.commit();
+
+        res.json({ message: "Status updated.", createdProblemSetId });
+    } catch (err) {
+        await connection.rollback();
+        console.error(err);
+        res.status(500).json({ message: "Failed to update status." });
+    } finally {
+        connection.release();
+    }
+});
+
 app.get("/topics", sendTopicsPage);
 app.get("/topics/", sendTopicsPage);
 app.get("/topics/:topicSlug", sendTopicsPage);
@@ -227,6 +347,7 @@ app.get("/profile", sendProfilePage);
 app.get("/profile/", sendProfilePage);
 app.get("/profile/:username", sendProfilePage);
 app.get("/competitions/:id", sendCompetitionDetailPage);
+app.get("/problems/:id", sendProblemSetDetailPage);
 
 app.get("/api/problem-sets", async (req, res) => {
     try {
@@ -319,6 +440,83 @@ app.post("/api/problem-sets", auth.requireAuth, async (req, res) => {
     } catch (err) {
         console.error(err);
         res.status(500).json({ message: "Problem set creation failed." });
+    }
+});
+
+app.get("/api/problem-sets/:id", async (req, res) => {
+    try {
+        const { id } = req.params;
+
+        const [problemSetRows] = await db.query(
+            "SELECT id, name, description, topic, subtopic, tags FROM problem_sets WHERE id = ? LIMIT 1",
+            [id]
+        );
+
+        if (problemSetRows.length === 0) {
+            return res.status(404).json({ message: "Problem set not found." });
+        }
+
+        const [problemRows] = await db.query(
+            "SELECT id, position, type, prompt, choices FROM problems WHERE problem_set_id = ? ORDER BY position ASC, id ASC",
+            [id]
+        );
+
+        const problemSet = problemSetRows[0];
+        problemSet.tags = problemSet.tags
+            ? problemSet.tags.split(',').map(tag => tag.trim()).filter(Boolean)
+            : [];
+
+        res.json({
+            problemSet,
+            problems: problemRows.map(row => ({
+                id: row.id,
+                type: row.type,
+                prompt: row.prompt,
+                choices: row.choices
+            }))
+        });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ message: "Failed to load problem set." });
+    }
+});
+
+app.post("/api/problem-sets/:id/check", async (req, res) => {
+    try {
+        const { id } = req.params;
+        const submitted = (req.body && req.body.answers) || {};
+
+        const [problemRows] = await db.query(
+            "SELECT id, type, answer FROM problems WHERE problem_set_id = ?",
+            [id]
+        );
+
+        if (problemRows.length === 0) {
+            return res.status(404).json({ message: "Problem set not found or has no problems." });
+        }
+
+        const results = {};
+        let correctCount = 0;
+
+        for (const problem of problemRows) {
+            const submittedAnswer = String(submitted[problem.id] ?? "").trim();
+            const acceptableAnswers = problem.answer.split(',').map(a => a.trim().toLowerCase());
+            const isCorrect = acceptableAnswers.includes(submittedAnswer.toLowerCase()) && submittedAnswer !== "";
+
+            results[problem.id] = isCorrect;
+            if (isCorrect) {
+                correctCount += 1;
+            }
+        }
+
+        res.json({
+            results,
+            correctCount,
+            total: problemRows.length
+        });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ message: "Failed to check answers." });
     }
 });
 

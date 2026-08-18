@@ -254,7 +254,7 @@ function renderTopicDetail(topics, topicSlug) {
         : '<p class="topicdetailtext">No subtopics available yet.</p>';
 
     container.innerHTML = `
-        <div class="topicdetail">
+        <div class="topicdetail topicdetail-${topicSlug}">
             <a class="topicdetailback" href="/topics/">Back to all topics</a>
             <h1 class="topicdetailtitle">${escapeHtml(selectedTopic.topic)}</h1>
             <div class="topicdetailgrid">
@@ -783,14 +783,14 @@ async function renderSubtopicDetail(topics, topicSlug, subtopicSlug) {
             ? `
                 <div class="problemsetgrid">
                     ${problemSets.map((problemSet) => `
-                        <article class="problemsetcard">
+                        <a class="problemsetcard" href="/problems/${encodeURIComponent(problemSet.id)}">
                             <p class="problemsetid">Problem Set ID #${escapeHtml(problemSet.id)}</p>
                             <h2>${escapeHtml(problemSet.name)}</h2>
                             <p>${escapeHtml(problemSet.description || "No description available yet.")}</p>
                             <div class="problemsettags">
                                 ${(problemSet.tags || []).map((tag) => `<span class="problemsettag">${escapeHtml(tag)}</span>`).join('')}
                             </div>
-                        </article>
+                        </a>
                     `).join('')}
                 </div>
             `
@@ -851,7 +851,7 @@ function renderProblemSetResults(problemSets, searchTerm = "") {
     container.innerHTML = `
         <div class="problemsetgrid">
             ${problemSets.map((problemSet) => `
-                <article class="problemsetcard">
+                <a class="problemsetcard" href="/problems/${encodeURIComponent(problemSet.id)}">
                     <p class="problemsetid">Problem Set ID #${escapeHtml(problemSet.id)}</p>
                     <h2>${escapeHtml(problemSet.name)}</h2>
                     <p>${escapeHtml(problemSet.description || "No description available yet.")}</p>
@@ -859,7 +859,7 @@ function renderProblemSetResults(problemSets, searchTerm = "") {
                     <div class="problemsettags">
                         ${(problemSet.tags || []).map((tag) => `<span class="problemsettag">${escapeHtml(tag)}</span>`).join('')}
                     </div>
-                </article>
+                </a>
             `).join('')}
         </div>
     `;
@@ -1161,11 +1161,39 @@ async function pingServer() {
     }
 }
 
+// Generic per-topic background: any topic slug tries to load
+// /images/topics/{slug}.png. Topics without a matching image just render
+// with no background -- a failed background-image request degrades silently.
+function applyTopicBackground(topicSlug) {
+    const main = document.querySelector("main");
+    if (!main) {
+        return;
+    }
+
+    if (topicSlug) {
+        main.classList.add("topicbg");
+        main.style.setProperty("--topic-bg-image", `url(/images/topics/${encodeURIComponent(topicSlug)}.png)`);
+    } else {
+        main.classList.remove("topicbg");
+        main.style.removeProperty("--topic-bg-image");
+    }
+}
+
+function toggleTopicNetworkLink(show) {
+    const link = document.getElementById("topicnetworklink");
+    if (link) {
+        link.style.display = show ? "" : "none";
+    }
+}
+
 async function courseLoad() {
     try {
         const response = await fetch('/api/topics');
         const topics = await response.json();
         const route = getTopicRoute();
+
+        applyTopicBackground(route.topicSlug);
+        toggleTopicNetworkLink(route.view === "index");
 
         if (route.view === "subtopic") {
             await renderSubtopicDetail(topics, route.topicSlug, route.subtopicSlug);

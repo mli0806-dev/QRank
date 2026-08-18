@@ -41,7 +41,7 @@ async function getSessionUser(req) {
 
     const [rows] = await db.query(
         `
-        SELECT users.id, users.username, users.email
+        SELECT users.id, users.username, users.email, users.role
         FROM sessions
         JOIN users ON users.id = sessions.user_id
         WHERE sessions.token_hash = ? AND sessions.expires_at > NOW()
@@ -58,6 +58,21 @@ async function requireAuth(req, res, next) {
 
     if (!user) {
         return res.status(401).json({ message: "Not authenticated." });
+    }
+
+    req.user = user;
+    next();
+}
+
+async function requireAdmin(req, res, next) {
+    const user = await getSessionUser(req);
+
+    if (!user) {
+        return res.status(401).json({ message: "Not authenticated." });
+    }
+
+    if (user.role !== "admin") {
+        return res.status(403).json({ message: "Not authorized." });
     }
 
     req.user = user;
@@ -85,6 +100,7 @@ module.exports = {
     destroyUserSessions,
     getSessionUser,
     requireAuth,
+    requireAdmin,
     setSessionCookie,
     clearSessionCookie
 };
