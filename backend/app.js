@@ -260,7 +260,7 @@ app.get("/api/problem-sets/count", async (req, res) => {
 
 app.post("/api/problem-set-suggestions", publicWriteLimiter, async (req, res) => {
     try {
-        const { name, description, topic, subtopic, tags, problems, submitter } = req.body || {};
+        const { name, description, topic, subtopic, unit, tags, problems, submitter } = req.body || {};
 
         if (!name || !topic || !subtopic || !problems) {
             return res.status(400).json({ message: "Name, topic, subtopic, and problems are required." });
@@ -270,6 +270,7 @@ app.post("/api/problem-set-suggestions", publicWriteLimiter, async (req, res) =>
         const cleanDescription = String(description || "").trim();
         const cleanTopic = String(topic).trim();
         const cleanSubtopic = String(subtopic).trim();
+        const cleanUnit = unit ? String(unit).trim() : null;
         const cleanTags = String(tags || "")
             .split(',')
             .map(tag => tag.trim())
@@ -279,8 +280,8 @@ app.post("/api/problem-set-suggestions", publicWriteLimiter, async (req, res) =>
         const cleanSubmitter = submitter ? String(submitter).trim() : null;
 
         const [result] = await db.query(
-            "INSERT INTO problem_set_suggestions (name, description, topic, subtopic, tags, problems, submitter) VALUES (?, ?, ?, ?, ?, ?, ?)",
-            [cleanName, cleanDescription, cleanTopic, cleanSubtopic, cleanTags, cleanProblems, cleanSubmitter]
+            "INSERT INTO problem_set_suggestions (name, description, topic, subtopic, unit, tags, problems, submitter) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+            [cleanName, cleanDescription, cleanTopic, cleanSubtopic, cleanUnit, cleanTags, cleanProblems, cleanSubmitter]
         );
 
         res.status(201).json({
@@ -293,39 +294,135 @@ app.post("/api/problem-set-suggestions", publicWriteLimiter, async (req, res) =>
     }
 });
 
+function mapSuggestionRow(row) {
+    let parsedProblems = [];
+    try {
+        parsedProblems = JSON.parse(row.problems);
+    } catch (err) {
+        parsedProblems = [];
+    }
+
+    return {
+        id: row.id,
+        name: row.name,
+        description: row.description,
+        topic: row.topic,
+        subtopic: row.subtopic,
+        unit: row.unit,
+        tags: row.tags ? row.tags.split(',').map(t => t.trim()).filter(Boolean) : [],
+        problems: parsedProblems,
+        submitter: row.submitter,
+        status: row.status,
+        createdAt: row.created_at,
+        createdProblemSetId: row.created_problem_set_id,
+        editingProblemSetId: row.editing_problem_set_id
+    };
+}
+
+const SUGGESTION_COLUMNS = "id, name, description, topic, subtopic, unit, tags, problems, submitter, status, created_at, created_problem_set_id, editing_problem_set_id";
+
 app.get("/api/admin/problem-set-suggestions", auth.requireAdmin, async (req, res) => {
     try {
         const [rows] = await db.query(
-            "SELECT id, name, description, topic, subtopic, tags, problems, submitter, status, created_at, created_problem_set_id FROM problem_set_suggestions ORDER BY created_at DESC"
+            `SELECT ${SUGGESTION_COLUMNS} FROM problem_set_suggestions ORDER BY created_at DESC`
         );
 
-        const suggestions = rows.map(row => {
-            let parsedProblems = [];
-            try {
-                parsedProblems = JSON.parse(row.problems);
-            } catch (err) {
-                parsedProblems = [];
-            }
-
-            return {
-                id: row.id,
-                name: row.name,
-                description: row.description,
-                topic: row.topic,
-                subtopic: row.subtopic,
-                tags: row.tags ? row.tags.split(',').map(t => t.trim()).filter(Boolean) : [],
-                problems: parsedProblems,
-                submitter: row.submitter,
-                status: row.status,
-                createdAt: row.created_at,
-                createdProblemSetId: row.created_problem_set_id
-            };
-        });
-
-        res.json({ suggestions });
+        res.json({ suggestions: rows.map(mapSuggestionRow) });
     } catch (err) {
         console.error(err);
         res.status(500).json({ message: "Failed to load suggestions." });
+    }
+});
+
+app.get("/api/admin/problem-set-suggestions/:id", auth.requireAdmin, async (req, res) => {
+    try {
+        const [rows] = await db.query(
+            `SELECT ${SUGGESTION_COLUMNS} FROM problem_set_suggestions WHERE id = ? LIMIT 1`,
+            [req.params.id]
+        );
+
+        if (rows.length === 0) {
+            return res.status(404).json({ message: "Suggestion not found." });
+        }
+
+        res.json({ suggestion: mapSuggestionRow(rows[0]) });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ message: "Failed to load suggestion." });
+    }
+});
+
+app.put("/api/admin/problem-set-suggestions/:id", auth.requireAdmin, async (req, res) => {
+    try {
+        const { name, description, topic, subtopic, unit, tags, problems } = req.body || {};
+
+        if (!name || !topic || !subtopic || !problems) {
+            return res.status(400).json({ message: "Name, topic, subtopic, and problems are required." });
+        }
+
+        const cleanTags = String(tags || "")
+            .split(',')
+            .map(tag => tag.trim())
+            .filter(Boolean)
+            .join(',');
+        const cleanUnit = unit ? String(unit).trim() : null;
+
+        const [result] = await db.query(
+            "UPDATE problem_set_suggestions SET name = ?, description = ?, topic = ?, subtopic = ?, unit = ?, tags = ?, problems = ? WHERE id = ?",
+            [String(name).trim(), String(description || "").trim(), String(topic).trim(), String(subtopic).trim(), cleanUnit, cleanTags, String(problems).trim(), req.params.id]
+        );
+
+        if (result.affectedRows === 0) {
+            return res.status(404).json({ message: "Suggestion not found." });
+        }
+
+        res.json({ message: "Suggestion updated." });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ message: "Failed to update suggestion." });
+    }
+});
+
+// Admin-only entry point into editing an already-live problem set: instead of a
+// separate in-place edit UI, this clones the live problem_set + its problems into
+// a new pending suggestion, which the admin then edits through the exact same
+// form/review pipeline used for brand-new submissions. Approving it later updates
+// the original problem_set in place (see the editing_problem_set_id handling below)
+// rather than publishing a duplicate.
+app.post("/api/admin/problem-sets/:id/edit", auth.requireAdmin, async (req, res) => {
+    try {
+        const [problemSetRows] = await db.query(
+            "SELECT id, name, description, topic, subtopic, unit, tags FROM problem_sets WHERE id = ? LIMIT 1",
+            [req.params.id]
+        );
+
+        if (problemSetRows.length === 0) {
+            return res.status(404).json({ message: "Problem set not found." });
+        }
+
+        const problemSet = problemSetRows[0];
+
+        const [problemRows] = await db.query(
+            "SELECT type, prompt, choices, answer FROM problems WHERE problem_set_id = ? ORDER BY position ASC, id ASC",
+            [problemSet.id]
+        );
+
+        const problemsJson = JSON.stringify(problemRows.map(row => ({
+            type: row.type,
+            prompt: row.prompt,
+            choices: row.choices || undefined,
+            answer: row.answer
+        })));
+
+        const [result] = await db.query(
+            "INSERT INTO problem_set_suggestions (name, description, topic, subtopic, unit, tags, problems, submitter, status, editing_problem_set_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'pending', ?)",
+            [problemSet.name, problemSet.description, problemSet.topic, problemSet.subtopic, problemSet.unit, problemSet.tags, problemsJson, req.user.username, problemSet.id]
+        );
+
+        res.status(201).json({ suggestionId: result.insertId });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ message: "Failed to start editing this problem set." });
     }
 });
 
@@ -344,7 +441,7 @@ app.patch("/api/admin/problem-set-suggestions/:id", auth.requireAdmin, async (re
         await connection.beginTransaction();
 
         const [suggestionRows] = await connection.query(
-            "SELECT id, name, description, topic, subtopic, tags, problems FROM problem_set_suggestions WHERE id = ? LIMIT 1 FOR UPDATE",
+            "SELECT id, name, description, topic, subtopic, unit, tags, problems, editing_problem_set_id FROM problem_set_suggestions WHERE id = ? LIMIT 1 FOR UPDATE",
             [id]
         );
 
@@ -386,12 +483,32 @@ app.patch("/api/admin/problem-set-suggestions/:id", auth.requireAdmin, async (re
             const courseTags = await getCourseTagsForSubtopic(connection, suggestion.topic, suggestion.subtopic);
             const finalTags = mergeTags(manualTags, courseTags);
 
-            const [problemSetResult] = await connection.query(
-                "INSERT INTO problem_sets (name, description, topic, subtopic, tags) VALUES (?, ?, ?, ?, ?)",
-                [suggestion.name, suggestion.description, suggestion.topic, suggestion.subtopic, finalTags]
-            );
+            let publishedProblemSetId = suggestion.editing_problem_set_id;
 
-            const createdProblemSetId = problemSetResult.insertId;
+            if (publishedProblemSetId) {
+                // This suggestion is an edit of an existing problem set -- update it in
+                // place instead of publishing a duplicate. Replacing all of its problems
+                // (rather than trying to diff old vs new) keeps this simple and correct;
+                // ON DELETE CASCADE on problems.problem_set_id handles the cleanup.
+                const [updateResult] = await connection.query(
+                    "UPDATE problem_sets SET name = ?, description = ?, topic = ?, subtopic = ?, unit = ?, tags = ? WHERE id = ?",
+                    [suggestion.name, suggestion.description, suggestion.topic, suggestion.subtopic, suggestion.unit, finalTags, publishedProblemSetId]
+                );
+
+                if (updateResult.affectedRows === 0) {
+                    await connection.rollback();
+                    return res.status(404).json({ message: "The problem set this suggestion was editing no longer exists." });
+                }
+
+                await connection.query("DELETE FROM problems WHERE problem_set_id = ?", [publishedProblemSetId]);
+            } else {
+                const [problemSetResult] = await connection.query(
+                    "INSERT INTO problem_sets (name, description, topic, subtopic, unit, tags) VALUES (?, ?, ?, ?, ?, ?)",
+                    [suggestion.name, suggestion.description, suggestion.topic, suggestion.subtopic, suggestion.unit, finalTags]
+                );
+
+                publishedProblemSetId = problemSetResult.insertId;
+            }
 
             for (let position = 0; position < validProblems.length; position += 1) {
                 const problem = validProblems[position];
@@ -402,7 +519,7 @@ app.patch("/api/admin/problem-set-suggestions/:id", auth.requireAdmin, async (re
 
                 await connection.query(
                     "INSERT INTO problems (problem_set_id, position, type, prompt, choices, answer) VALUES (?, ?, ?, ?, ?, ?)",
-                    [createdProblemSetId, position, type, String(problem.prompt), choices, String(problem.answer)]
+                    [publishedProblemSetId, position, type, String(problem.prompt), choices, String(problem.answer)]
                 );
             }
 
@@ -410,7 +527,7 @@ app.patch("/api/admin/problem-set-suggestions/:id", auth.requireAdmin, async (re
             // problem_sets row, so there's no reason to keep the suggestion around too.
             await connection.query("DELETE FROM problem_set_suggestions WHERE id = ?", [id]);
             await connection.commit();
-            return res.json({ message: "Suggestion approved and published.", createdProblemSetId, deleted: true });
+            return res.json({ message: "Suggestion approved and published.", createdProblemSetId: publishedProblemSetId, deleted: true });
         }
 
         // "pending" or "reviewed" -- just update the status flag, nothing to delete.
@@ -447,6 +564,7 @@ app.get("/api/problem-sets", async (req, res) => {
         const searchTerm = String(req.query.search || "").trim();
         const topicFilter = String(req.query.topic || "").trim();
         const subtopicFilter = String(req.query.subtopic || "").trim();
+        const unitFilter = String(req.query.unit || "").trim();
         const conditions = [];
         const params = [];
 
@@ -470,8 +588,13 @@ app.get("/api/problem-sets", async (req, res) => {
             params.push(subtopicFilter.toLowerCase());
         }
 
+        if (unitFilter) {
+            conditions.push("LOWER(COALESCE(unit, '')) = ?");
+            params.push(unitFilter.toLowerCase());
+        }
+
         let query = `
-            SELECT id, name, description, topic, subtopic, tags
+            SELECT id, name, description, topic, subtopic, unit, tags
             FROM problem_sets
         `;
 
@@ -498,7 +621,7 @@ app.get("/api/problem-sets", async (req, res) => {
 
 app.post("/api/problem-sets", auth.requireAdmin, async (req, res) => {
     try {
-        const { name, description, topic, subtopic, tags } = req.body || {};
+        const { name, description, topic, subtopic, unit, tags } = req.body || {};
 
         if (!name || !topic || !subtopic) {
             return res.status(400).json({ message: "Name, topic, and subtopic are required." });
@@ -508,6 +631,7 @@ app.post("/api/problem-sets", auth.requireAdmin, async (req, res) => {
         const cleanDescription = String(description || "").trim();
         const cleanTopic = String(topic).trim();
         const cleanSubtopic = String(subtopic).trim();
+        const cleanUnit = unit ? String(unit).trim() : null;
         const manualTags = String(tags || "")
             .split(',')
             .map(tag => tag.trim())
@@ -516,8 +640,8 @@ app.post("/api/problem-sets", auth.requireAdmin, async (req, res) => {
         const cleanTags = mergeTags(manualTags, courseTags);
 
         const [result] = await db.query(
-            "INSERT INTO problem_sets (name, description, topic, subtopic, tags) VALUES (?, ?, ?, ?, ?)",
-            [cleanName, cleanDescription, cleanTopic, cleanSubtopic, cleanTags]
+            "INSERT INTO problem_sets (name, description, topic, subtopic, unit, tags) VALUES (?, ?, ?, ?, ?, ?)",
+            [cleanName, cleanDescription, cleanTopic, cleanSubtopic, cleanUnit, cleanTags]
         );
 
         res.status(201).json({
@@ -528,6 +652,7 @@ app.post("/api/problem-sets", auth.requireAdmin, async (req, res) => {
                 description: cleanDescription,
                 topic: cleanTopic,
                 subtopic: cleanSubtopic,
+                unit: cleanUnit,
                 tags: cleanTags
             }
         });
@@ -542,7 +667,7 @@ app.get("/api/problem-sets/:id", async (req, res) => {
         const { id } = req.params;
 
         const [problemSetRows] = await db.query(
-            "SELECT id, name, description, topic, subtopic, tags FROM problem_sets WHERE id = ? LIMIT 1",
+            "SELECT id, name, description, topic, subtopic, unit, tags FROM problem_sets WHERE id = ? LIMIT 1",
             [id]
         );
 

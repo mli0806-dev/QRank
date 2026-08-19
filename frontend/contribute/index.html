@@ -27,8 +27,8 @@
     </nav>
     <main>
         <div class="topicdetail">
-            <p class="aboutustitle">Contribute to QRank</p>
-            <p class="aboutustext">Submit a suggested problem set below and it will be added to our review queue.</p>
+            <p class="aboutustitle" id="contribute-page-heading">Contribute to QRank</p>
+            <p class="aboutustext" id="contribute-page-subtext">Submit a suggested problem set below and it will be added to our review queue.</p>
             <div class="aboutuspanel">
                 <form id="suggest-problem-set-form" class="suggestionform">
                     <label class="aboutustitle" for="suggest-name">Problem set name</label>
@@ -44,10 +44,21 @@
                         <option value="" disabled selected>Select a topic first</option>
                     </select>
 
+                    <label class="aboutustitle" for="suggest-unit">Unit (optional)</label>
+                    <select id="suggest-unit" class="inputs">
+                        <option value="" selected>No specific unit</option>
+                    </select>
+
                     <label class="aboutustitle" for="suggest-tags">Tags (optional -- the subtopic's course tag is added automatically)</label>
                     <select id="suggest-tags" class="inputs" multiple size="6"></select>
 
-                    <label class="aboutustitle" for="suggest-description">Description</label>
+                    <label class="aboutustitle" for="suggest-description">Description (Markdown supported)</label>
+                    <div class="markdowntoolbar">
+                        <button class="markdownbutton" type="button" data-markdown="bold">Bold</button>
+                        <button class="markdownbutton" type="button" data-markdown="italic">Italic</button>
+                        <button class="markdownbutton" type="button" data-markdown="link">Link</button>
+                        <button class="markdownbutton" type="button" data-markdown="code">Code</button>
+                    </div>
                     <textarea id="suggest-description" class="inputs" rows="4" placeholder="Brief description of the set"></textarea>
 
                     <div class="problem-builder">

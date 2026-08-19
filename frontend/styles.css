@@ -19,6 +19,10 @@ a, button {
   font-family: inherit;
 }
 
+h2 {
+  font-weight: normal;
+}
+
 :root {
   --bg: rgb(255, 255, 255);
   --text: black;
@@ -306,7 +310,7 @@ main.topicbg {
 .topicdetailsectionheader h2 {
   margin: 0;
   font-size: 24px;
-  font-weight: 500;
+  font-weight: normal;
 }
 
 
@@ -616,7 +620,7 @@ main.topicbg {
 .problemsetcard h2 {
   margin: 0;
   font-size: 20px;
-  font-weight: 500;
+  font-weight: normal;
 }
 
 .problemsetcard p {

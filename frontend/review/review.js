@@ -56,7 +56,8 @@ function renderSuggestion(suggestion) {
     const problemsHtml = suggestion.problems.length
         ? suggestion.problems.map((problem, index) => `
             <div class="suggestionproblem">
-                <p><strong>${index + 1}. [${escapeHtml(problem.type || "")}]</strong> ${escapeHtml(problem.prompt || "")}</p>
+                <p><strong>${index + 1}. [${escapeHtml(problem.type || "")}]</strong></p>
+                <div>${renderMarkdown(problem.prompt, "")}</div>
                 ${Array.isArray(problem.choices) && problem.choices.length
                     ? `<p>Choices: ${problem.choices.map(escapeHtml).join(', ')}</p>`
                     : ''}
@@ -71,7 +72,7 @@ function renderSuggestion(suggestion) {
             <p>Status: <span class="suggestionstatus">${escapeHtml(suggestion.status)}</span></p>
             <p class="suggestionlivelink">${renderLiveLink(suggestion.createdProblemSetId)}</p>
             <p>Submitted by: ${escapeHtml(suggestion.submitter || "anonymous")} on ${escapeHtml(new Date(suggestion.createdAt).toLocaleString())}</p>
-            <p>${escapeHtml(suggestion.description || "No description.")}</p>
+            <div>${renderMarkdown(suggestion.description, "No description.")}</div>
             <p>Tags: ${suggestion.tags.length ? suggestion.tags.map(escapeHtml).join(', ') : "none"}</p>
             ${problemsHtml}
             <div class="suggestionactions">

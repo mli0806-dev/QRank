@@ -31,6 +31,7 @@ async function loadProblemSetDetail() {
 
         const { problemSet, problems } = await response.json();
         renderProblemSetDetail(container, problemSetId, problemSet, problems);
+        initProblemSetEditButton(problemSetId);
     } catch (error) {
         console.error("Failed to load problem set:", error);
         container.innerHTML = `
@@ -49,7 +50,8 @@ function renderProblemSetDetail(container, problemSetId, problemSet, problems) {
     container.innerHTML = `
         <a class="topicdetailback" href="/problems/">Back to Problem Sets</a>
         <h1 class="topicdetailtitle">${escapeHtml(problemSet.name)}</h1>
-        <p class="topicdetailtext">${escapeHtml(problemSet.description || "No description available yet.")}</p>
+        <button type="button" id="edit-problem-set-button" class="topicdetailback hidden">Edit this problem set</button>
+        <div class="topicdetailtext">${renderMarkdown(problemSet.description, "No description available yet.")}</div>
         ${problemsHtml}
     `;
 
@@ -60,6 +62,46 @@ function renderProblemSetDetail(container, problemSetId, problemSet, problems) {
                 event.preventDefault();
                 checkSingleProblem(problemSetId, problem);
             });
+        }
+    });
+}
+
+// Reuses the suggestion/review pipeline as the edit mechanism for already-live
+// problem sets: clones this problem set into a new pending suggestion, then
+// sends the admin to the same contribute form (in edit mode) to change it.
+async function initProblemSetEditButton(problemSetId) {
+    const button = document.getElementById("edit-problem-set-button");
+    if (!button) {
+        return;
+    }
+
+    const currentUser = await getCurrentUser();
+    if (!currentUser || currentUser.role !== "admin") {
+        return;
+    }
+
+    button.classList.remove("hidden");
+    button.addEventListener("click", async () => {
+        button.disabled = true;
+        button.textContent = "Preparing edit...";
+
+        try {
+            const response = await fetch(`/api/admin/problem-sets/${encodeURIComponent(problemSetId)}/edit`, {
+                method: "POST"
+            });
+            const data = await response.json();
+
+            if (!response.ok) {
+                button.disabled = false;
+                button.textContent = data.message || "Unable to start editing.";
+                return;
+            }
+
+            window.location.href = `/contribute/?editSuggestion=${encodeURIComponent(data.suggestionId)}`;
+        } catch (error) {
+            console.error("Failed to start editing problem set:", error);
+            button.disabled = false;
+            button.textContent = "Unable to start editing.";
         }
     });
 }
@@ -79,7 +121,7 @@ function renderProblem(problem, index) {
 
     return `
         <form class="problemtakeitem" id="problemtakeform-${problem.id}">
-            <p class="problemtakeprompt">${number}. ${escapeHtml(problem.prompt)}</p>
+            <div class="problemtakeprompt">${number}. ${renderMarkdown(problem.prompt, "")}</div>
             <div class="problemtakeinput">${inputHtml}</div>
             <button type="submit" class="authsubmit">Check</button>
             <p class="problemtakefeedback"></p>

@@ -28,6 +28,15 @@ function getTopicRoute() {
     const subtopicParam = params.get("subtopic");
 
     if (parts[0] === "topics") {
+        if (parts.length >= 4) {
+            return {
+                view: "unit",
+                topicSlug: parts[1],
+                subtopicSlug: parts[2],
+                unitSlug: parts[3]
+            };
+        }
+
         if (parts.length >= 3) {
             return {
                 view: "subtopic",
@@ -100,20 +109,37 @@ function escapeHtml(value) {
         .replace(/'/g, "&#39;");
 }
 
-function renderMarkdown(value) {
-    const escaped = escapeHtml(value || "");
-    const withBreaks = escaped.replace(/\n/g, "<br>");
-    const withParagraphs = withBreaks
-        .replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")
-        .replace(/\*(.+?)\*/g, "<em>$1</em>")
-        .replace(/`(.+?)`/g, "<code>$1</code>")
-        .replace(/\[(.+?)\]\((.+?)\)/g, (match, text, url) => {
-            return /^(https?:|mailto:)/i.test(url.trim())
-                ? `<a href="${url}" target="_blank" rel="noopener noreferrer">${text}</a>`
-                : match;
-        });
+// Every <a> DOMPurify keeps gets forced to open safely in a new tab, same as
+// the old hand-rolled version did for its (much narrower) link support.
+let markdownLinkHookInstalled = false;
+function ensureMarkdownLinkHook() {
+    if (markdownLinkHookInstalled || typeof DOMPurify === 'undefined') {
+        return;
+    }
 
-    return withParagraphs || "No bio yet.";
+    DOMPurify.addHook('afterSanitizeAttributes', (node) => {
+        if (node.tagName === 'A') {
+            node.setAttribute('target', '_blank');
+            node.setAttribute('rel', 'noopener noreferrer');
+        }
+    });
+
+    markdownLinkHookInstalled = true;
+}
+
+function renderMarkdown(value, emptyFallback = "No bio yet.") {
+    const text = String(value || "").trim();
+
+    if (!text) {
+        return emptyFallback;
+    }
+
+    if (typeof marked === 'undefined' || typeof DOMPurify === 'undefined') {
+        return escapeHtml(text);
+    }
+
+    ensureMarkdownLinkHook();
+    return DOMPurify.sanitize(marked.parse(text));
 }
 
 function insertMarkdownSnippet(textarea, prefix, suffix, placeholder, remove = false) {
@@ -152,9 +178,7 @@ function insertMarkdownSnippet(textarea, prefix, suffix, placeholder, remove = f
     textarea.dispatchEvent(new Event("input", { bubbles: true }));
 }
 
-function applyMarkdownToBio(action, remove = false) {
-    const textarea = document.getElementById("bioInput");
-
+function applyMarkdownToTextarea(textarea, action, remove = false) {
     if (!textarea) {
         return;
     }
@@ -175,6 +199,20 @@ function applyMarkdownToBio(action, remove = false) {
         default:
             break;
     }
+}
+
+function applyMarkdownToBio(action, remove = false) {
+    applyMarkdownToTextarea(document.getElementById("bioInput"), action, remove);
+}
+
+function initMarkdownToolbar(toolbarSelector, textarea) {
+    document.querySelectorAll(toolbarSelector).forEach((button) => {
+        button.addEventListener("click", () => applyMarkdownToTextarea(textarea, button.dataset.markdown));
+        button.addEventListener("dblclick", (event) => {
+            event.preventDefault();
+            applyMarkdownToTextarea(textarea, button.dataset.markdown, true);
+        });
+    });
 }
 
 function renderTopicIndex(topics) {
@@ -450,8 +488,21 @@ function initTopicNetworkMap(topics = []) {
                 }
                 renderMap();
             }
+        } else if (type === "unit") {
+            // Units are the deepest tier -- nothing further to expand, so left-click
+            // navigates too instead of doing nothing.
+            navigateToUnitNode(node);
         }
     };
+
+    function navigateToUnitNode(node) {
+        const topicSlug = node.dataset.topicSlug;
+        const subtopicSlug = node.dataset.subtopicSlug;
+        const unitSlug = node.dataset.unitSlug;
+        if (topicSlug && subtopicSlug && unitSlug) {
+            window.location.href = `/topics/${topicSlug}/${subtopicSlug}/${unitSlug}`;
+        }
+    }
 
     // Attach click handler to wrapper so it receives events even when pointer capture is active
     wrapper.addEventListener("click", (ev) => {
@@ -486,6 +537,8 @@ function initTopicNetworkMap(topics = []) {
             if (topicSlug && subtopicSlug) {
                 window.location.href = `/topics/${topicSlug}/${subtopicSlug}`;
             }
+        } else if (type === "unit") {
+            navigateToUnitNode(node);
         }
     });
 
@@ -640,7 +693,10 @@ function initTopicNetworkMap(topics = []) {
                 const subtopicIndex = topic.subtopics.indexOf(sub);
                 const subtopicKey = `${topicIndex}-${subtopicIndex}`;
                 const isExpanded = selectedSubtopicKeys.has(subtopicKey);
-                subtopicNodesByKey.set(subtopicKey, { x, y, color: parentNode.color, subtopic: sub });
+                subtopicNodesByKey.set(subtopicKey, {
+                    x, y, color: parentNode.color, subtopic: sub,
+                    topicSlug: slugify(topic.topic), subtopicSlug: slugify(sub.name)
+                });
 
                 expandedSubtopicData.push({
                     line: `<line x1="${parentNode.x}" y1="${parentNode.y}" x2="${x}" y2="${y}" style="stroke: ${parentNode.color};" />`,
@@ -673,7 +729,7 @@ function initTopicNetworkMap(topics = []) {
 
                 expandedUnitData.push({
                     line: `<line x1="${subtopicNode.x}" y1="${subtopicNode.y}" x2="${x}" y2="${y}" style="stroke: ${subtopicNode.color};" />`,
-                    markup: `<button type="button" class="network-node unit" data-type="unit" style="left: ${x}px; top: ${y}px; color: ${subtopicNode.color};">${escapeHtml(unit.name)}</button>`
+                    markup: `<button type="button" class="network-node unit" data-type="unit" data-topic-slug="${encodeURIComponent(subtopicNode.topicSlug)}" data-subtopic-slug="${encodeURIComponent(subtopicNode.subtopicSlug)}" data-unit-slug="${encodeURIComponent(slugify(unit.name))}" style="left: ${x}px; top: ${y}px; color: ${subtopicNode.color};">${escapeHtml(unit.name)}</button>`
                 });
             });
         });
@@ -824,6 +880,22 @@ async function renderSubtopicDetail(topics, topicSlug, subtopicSlug) {
     const tagarray = selectedSubtopic.tags ? selectedSubtopic.tags.split(', ') : [];
     const tagshtml = tagarray.map(tag => `<span class="tag">(${escapeHtml(tag)})</span>`).join(' ');
 
+    const units = selectedSubtopic.units || [];
+    const unitsHtml = units.length
+        ? `
+            <div class="topicdetailsection">
+                <h3 class="topicdetailitemtitle">Units</h3>
+                <div class="topicdetailgrid">
+                    ${units.map((unit) => `
+                        <a class="topicdetailitem" href="/topics/${encodeURIComponent(topicSlug)}/${encodeURIComponent(subtopicSlug)}/${encodeURIComponent(slugify(unit.name))}">
+                            <span class="topicdetailitemtitle">${escapeHtml(unit.name)}</span>
+                        </a>
+                    `).join('')}
+                </div>
+            </div>
+        `
+        : '';
+
     try {
         const response = await fetch(`/api/problem-sets?topic=${encodeURIComponent(selectedTopic.topic)}&subtopic=${encodeURIComponent(selectedSubtopic.name)}`);
         const problemSets = await response.json();
@@ -834,7 +906,7 @@ async function renderSubtopicDetail(topics, topicSlug, subtopicSlug) {
                         <a class="problemsetcard" href="/problems/${encodeURIComponent(problemSet.id)}">
                             <p class="problemsetid">Problem Set ID #${escapeHtml(problemSet.id)}</p>
                             <h2>${escapeHtml(problemSet.name)}</h2>
-                            <p>${escapeHtml(problemSet.description || "No description available yet.")}</p>
+                            <div>${renderMarkdown(problemSet.description, "No description available yet.")}</div>
                             <div class="problemsettags">
                                 ${(problemSet.tags || []).map((tag) => `<span class="problemsettag">${escapeHtml(tag)}</span>`).join('')}
                             </div>
@@ -852,6 +924,7 @@ async function renderSubtopicDetail(topics, topicSlug, subtopicSlug) {
                         <h2>${escapeHtml(selectedSubtopic.name)}</h2>
                         <span class="topicdetailitemmeta">${tagshtml}</span>
                     </div>
+                    ${unitsHtml}
                     <div class="topicdetailsection">
                         <h3 class="topicdetailitemtitle">Problem sets</h3>
                         ${problemSetMarkup}
@@ -869,9 +942,87 @@ async function renderSubtopicDetail(topics, topicSlug, subtopicSlug) {
                         <h2>${escapeHtml(selectedSubtopic.name)}</h2>
                         <span class="topicdetailitemmeta">${tagshtml}</span>
                     </div>
+                    ${unitsHtml}
                     <div class="topicdetailsection">
                         <h3 class="topicdetailitemtitle">Problem sets</h3>
                         <div class="problemsetempty"><p>Unable to load problem sets for this subtopic right now.</p></div>
+                    </div>
+                </div>
+            </div>
+        `;
+    }
+}
+
+async function renderUnitDetail(topics, topicSlug, subtopicSlug, unitSlug) {
+    const container = document.getElementById("coursecontainer");
+
+    if (!container) {
+        return;
+    }
+
+    const selectedTopic = topics.find(topic => slugify(topic.topic) === topicSlug);
+    const selectedSubtopic = selectedTopic?.subtopics.find(subtopic => slugify(subtopic.name) === subtopicSlug);
+    const selectedUnit = selectedSubtopic?.units?.find(unit => slugify(unit.name) === unitSlug);
+
+    if (!selectedTopic || !selectedSubtopic || !selectedUnit) {
+        container.innerHTML = `
+            <div class="topicdetail">
+                <a class="topicdetailback" href="/topics/">Back to all topics</a>
+                <h1 class="topicdetailtitle">Unit not found</h1>
+                <p class="topicdetailtext">We couldn't find that unit.</p>
+            </div>
+        `;
+        return;
+    }
+
+    const backHref = `/topics/${encodeURIComponent(topicSlug)}/${encodeURIComponent(subtopicSlug)}`;
+
+    try {
+        const response = await fetch(`/api/problem-sets?topic=${encodeURIComponent(selectedTopic.topic)}&subtopic=${encodeURIComponent(selectedSubtopic.name)}&unit=${encodeURIComponent(selectedUnit.name)}`);
+        const problemSets = await response.json();
+        const problemSetMarkup = problemSets.length
+            ? `
+                <div class="problemsetgrid">
+                    ${problemSets.map((problemSet) => `
+                        <a class="problemsetcard" href="/problems/${encodeURIComponent(problemSet.id)}">
+                            <p class="problemsetid">Problem Set ID #${escapeHtml(problemSet.id)}</p>
+                            <h2>${escapeHtml(problemSet.name)}</h2>
+                            <div>${renderMarkdown(problemSet.description, "No description available yet.")}</div>
+                            <div class="problemsettags">
+                                ${(problemSet.tags || []).map((tag) => `<span class="problemsettag">${escapeHtml(tag)}</span>`).join('')}
+                            </div>
+                        </a>
+                    `).join('')}
+                </div>
+            `
+            : '<div class="problemsetempty"><p>No problem sets have been assigned to this unit yet.</p></div>';
+
+        container.innerHTML = `
+            <div class="topicdetail">
+                <a class="topicdetailback" href="${backHref}">Back to ${escapeHtml(selectedSubtopic.name)}</a>
+                <div class="topicdetailpanel">
+                    <div class="topicdetailsectionheader">
+                        <h2>${escapeHtml(selectedUnit.name)}</h2>
+                    </div>
+                    <div class="topicdetailsection">
+                        <h3 class="topicdetailitemtitle">Problem sets</h3>
+                        ${problemSetMarkup}
+                    </div>
+                </div>
+            </div>
+        `;
+    } catch (error) {
+        console.error("Failed to load problem sets for unit:", error);
+        container.innerHTML = `
+            <div class="topicdetail">
+                <a class="topicdetailback" href="${backHref}">Back to ${escapeHtml(selectedSubtopic.name)}</a>
+                <div class="topicdetailpanel">
+                    <div class="topicdetailsectionheader">
+                        <h2>${escapeHtml(selectedUnit.name)}</h2>
+                    </div>
+                    <div class="topicdetailsection">
+                        <h3 class="topicdetailitemtitle">Problem sets</h3>
+                        <div class="problemsetempty"><p>Unable to load problem sets for this unit right now.</p></div>
                     </div>
                 </div>
             </div>
@@ -902,8 +1053,8 @@ function renderProblemSetResults(problemSets, searchTerm = "") {
                 <a class="problemsetcard" href="/problems/${encodeURIComponent(problemSet.id)}">
                     <p class="problemsetid">Problem Set ID #${escapeHtml(problemSet.id)}</p>
                     <h2>${escapeHtml(problemSet.name)}</h2>
-                    <p>${escapeHtml(problemSet.description || "No description available yet.")}</p>
-                    <p class="problemsetmeta">${escapeHtml([problemSet.topic, problemSet.subtopic].filter(Boolean).join(" / ") || "Topic not assigned")}</p>
+                    <div>${renderMarkdown(problemSet.description, "No description available yet.")}</div>
+                    <p class="problemsetmeta">${escapeHtml([problemSet.topic, problemSet.subtopic, problemSet.unit].filter(Boolean).join(" / ") || "Topic not assigned")}</p>
                     <div class="problemsettags">
                         ${(problemSet.tags || []).map((tag) => `<span class="problemsettag">${escapeHtml(tag)}</span>`).join('')}
                     </div>
@@ -1243,6 +1394,11 @@ async function courseLoad() {
         applyTopicBackground(route.topicSlug);
         toggleTopicNetworkLink(route.view === "index");
 
+        if (route.view === "unit") {
+            await renderUnitDetail(topics, route.topicSlug, route.subtopicSlug, route.unitSlug);
+            return;
+        }
+
         if (route.view === "subtopic") {
             await renderSubtopicDetail(topics, route.topicSlug, route.subtopicSlug);
             return;
@@ -1329,12 +1485,13 @@ async function checkUserStatus() {
     }
 }
 
-async function initSuggestionFormSelects() {
+async function initSuggestionFormSelects(preselect = null) {
     const topicSelect = document.getElementById("suggest-topic");
     const subtopicSelect = document.getElementById("suggest-subtopic");
+    const unitSelect = document.getElementById("suggest-unit");
     const tagsSelect = document.getElementById("suggest-tags");
 
-    if (!topicSelect || !subtopicSelect || !tagsSelect) {
+    if (!topicSelect || !subtopicSelect || !unitSelect || !tagsSelect) {
         return;
     }
 
@@ -1347,13 +1504,30 @@ async function initSuggestionFormSelects() {
         console.error('Failed to load topics for suggestion form:', error);
     }
 
-    const populateSubtopics = (topicName) => {
+    const populateUnits = (topicName, subtopicName, selectUnitName) => {
+        const selectedTopic = topics.find((topic) => topic.topic === topicName);
+        const selectedSubtopic = selectedTopic?.subtopics.find((subtopic) => subtopic.name === subtopicName);
+        const units = selectedSubtopic ? (selectedSubtopic.units || []) : [];
+
+        unitSelect.innerHTML = '<option value="">No specific unit</option>' +
+            units.map((unit) => `<option value="${escapeHtml(unit.name)}">${escapeHtml(unit.name)}</option>`).join('');
+
+        unitSelect.value = selectUnitName || "";
+    };
+
+    const populateSubtopics = (topicName, selectSubtopicName, selectUnitName) => {
         const selectedTopic = topics.find((topic) => topic.topic === topicName);
         const subtopics = selectedTopic ? selectedTopic.subtopics : [];
 
         subtopicSelect.innerHTML = subtopics.length
             ? subtopics.map((subtopic) => `<option value="${escapeHtml(subtopic.name)}">${escapeHtml(subtopic.name)}</option>`).join('')
             : '<option value="" disabled selected>No subtopics available</option>';
+
+        if (selectSubtopicName) {
+            subtopicSelect.value = selectSubtopicName;
+        }
+
+        populateUnits(topicName, subtopicSelect.value, selectUnitName);
     };
 
     topicSelect.innerHTML = topics.length
@@ -1362,6 +1536,7 @@ async function initSuggestionFormSelects() {
         : '<option value="" disabled selected>No topics available</option>';
 
     topicSelect.addEventListener("change", () => populateSubtopics(topicSelect.value));
+    subtopicSelect.addEventListener("change", () => populateUnits(topicSelect.value, subtopicSelect.value));
 
     try {
         const response = await fetch('/api/tags');
@@ -1370,7 +1545,22 @@ async function initSuggestionFormSelects() {
     } catch (error) {
         console.error('Failed to load tags for suggestion form:', error);
     }
+
+    if (preselect) {
+        if (preselect.topic) {
+            topicSelect.value = preselect.topic;
+            populateSubtopics(preselect.topic, preselect.subtopic, preselect.unit);
+        }
+
+        if (Array.isArray(preselect.tags)) {
+            Array.from(tagsSelect.options).forEach((option) => {
+                option.selected = preselect.tags.includes(option.value);
+            });
+        }
+    }
 }
+
+let editingSuggestionId = null;
 
 async function submitProblemSetSuggestion(event) {
     if (event) {
@@ -1383,7 +1573,7 @@ async function submitProblemSetSuggestion(event) {
         return;
     }
 
-    statusElement.textContent = "Submitting suggestion...";
+    statusElement.textContent = editingSuggestionId ? "Saving changes..." : "Submitting suggestion...";
 
     const problems = serializeProblemItems();
     if (!problems.length) {
@@ -1398,6 +1588,7 @@ async function submitProblemSetSuggestion(event) {
         name: document.getElementById("suggest-name").value.trim(),
         topic: document.getElementById("suggest-topic").value.trim(),
         subtopic: document.getElementById("suggest-subtopic").value.trim(),
+        unit: document.getElementById("suggest-unit").value.trim(),
         tags: selectedTags.join(','),
         description: document.getElementById("suggest-description").value.trim(),
         problems: JSON.stringify(problems),
@@ -1415,15 +1606,27 @@ async function submitProblemSetSuggestion(event) {
     }
 
     try {
-        const response = await fetch("/api/problem-set-suggestions", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(payload)
-        });
+        const response = editingSuggestionId
+            ? await fetch(`/api/admin/problem-set-suggestions/${encodeURIComponent(editingSuggestionId)}`, {
+                method: "PUT",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(payload)
+            })
+            : await fetch("/api/problem-set-suggestions", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(payload)
+            });
         const data = await response.json();
 
         if (!response.ok) {
-            statusElement.textContent = data.message || "Unable to submit your suggestion.";
+            statusElement.textContent = data.message || "Unable to save.";
+            return;
+        }
+
+        if (editingSuggestionId) {
+            statusElement.textContent = "Changes saved. Redirecting to review...";
+            window.location.href = "/review/";
             return;
         }
 
@@ -1431,7 +1634,93 @@ async function submitProblemSetSuggestion(event) {
         form.reset();
     } catch (error) {
         console.error("Failed to submit suggestion:", error);
-        statusElement.textContent = "Unable to submit your suggestion right now.";
+        statusElement.textContent = "Unable to save right now.";
+    }
+}
+
+// Handles both the normal "suggest something new" flow and, when the URL has
+// ?editSuggestion=<id>, editing an already-live problem set through the same
+// form -- that query param is set by the admin-only Edit button on a problem
+// set's own page (see initProblemSetEditButton), which creates a pending
+// suggestion pre-filled from the live content and sends the admin here.
+async function initContributePage() {
+    const suggestForm = document.getElementById("suggest-problem-set-form");
+    const addProblemButton = document.getElementById("add-problem-button");
+
+    if (suggestForm) {
+        suggestForm.addEventListener("submit", submitProblemSetSuggestion);
+    }
+
+    if (addProblemButton) {
+        addProblemButton.addEventListener("click", addProblemItem);
+    }
+
+    initMarkdownToolbar(".markdownbutton", document.getElementById("suggest-description"));
+
+    const editId = new URLSearchParams(window.location.search).get("editSuggestion");
+    const statusElement = document.getElementById("suggestion-status");
+
+    if (!editId) {
+        await initSuggestionFormSelects();
+        addProblemItem();
+        return;
+    }
+
+    if (statusElement) {
+        statusElement.textContent = "Loading problem set for editing...";
+    }
+
+    try {
+        const response = await fetch(`/api/admin/problem-set-suggestions/${encodeURIComponent(editId)}`);
+
+        if (!response.ok) {
+            if (statusElement) {
+                statusElement.textContent = "Unable to load this problem set for editing.";
+            }
+            await initSuggestionFormSelects();
+            addProblemItem();
+            return;
+        }
+
+        const { suggestion } = await response.json();
+        editingSuggestionId = suggestion.id;
+
+        document.getElementById("suggest-name").value = suggestion.name || "";
+        document.getElementById("suggest-description").value = suggestion.description || "";
+
+        await initSuggestionFormSelects({ topic: suggestion.topic, subtopic: suggestion.subtopic, unit: suggestion.unit, tags: suggestion.tags });
+
+        if (suggestion.problems.length) {
+            suggestion.problems.forEach((problem) => populateProblemItem(addProblemItem(), problem));
+        } else {
+            addProblemItem();
+        }
+
+        const submitButton = suggestForm?.querySelector('button[type="submit"]');
+        if (submitButton) {
+            submitButton.textContent = "Save Changes";
+        }
+
+        const heading = document.getElementById("contribute-page-heading");
+        if (heading) {
+            heading.textContent = `Editing: ${suggestion.name}`;
+        }
+
+        const subtext = document.getElementById("contribute-page-subtext");
+        if (subtext) {
+            subtext.textContent = "Saving will send this back to the review queue for approval.";
+        }
+
+        if (statusElement) {
+            statusElement.textContent = "";
+        }
+    } catch (error) {
+        console.error("Failed to load problem set for editing:", error);
+        if (statusElement) {
+            statusElement.textContent = "Unable to load this problem set for editing.";
+        }
+        await initSuggestionFormSelects();
+        addProblemItem();
     }
 }
 
@@ -1535,6 +1824,7 @@ function updateProblemItemTypeFields(item) {
     const answerLabel = item.querySelector('.problem-answer-label');
     const answerInput = item.querySelector('.problem-answer');
     const correctRadios = Array.from(item.querySelectorAll('.choice-correct-radio'));
+    const choiceInputs = Array.from(item.querySelectorAll('.choice-input'));
 
     if (type === 'free_response') {
         if (choiceLabel) {
@@ -1548,6 +1838,12 @@ function updateProblemItemTypeFields(item) {
         }
         correctRadios.forEach(radio => {
             radio.required = false;
+        });
+        // These sit inside choiceList, which just got hidden -- a required-but-empty
+        // field the browser can't focus to show its validation bubble blocks submit
+        // entirely with a silent, hard-to-diagnose "not focusable" console error.
+        choiceInputs.forEach(input => {
+            input.required = false;
         });
         if (answerLabel) {
             answerLabel.style.display = '';
@@ -1571,6 +1867,9 @@ function updateProblemItemTypeFields(item) {
         }
         correctRadios.forEach(radio => {
             radio.required = true;
+        });
+        choiceInputs.forEach(input => {
+            input.required = true;
         });
         if (answerLabel) {
             answerLabel.style.display = 'none';
@@ -1643,6 +1942,58 @@ function addProblemItem() {
     }
 
     updateProblemItemTypeFields(template);
+    return template;
+}
+
+// Fills in a freshly-created problem item (from addProblemItem) with existing
+// problem data -- used when editing an already-live problem set through the
+// suggestion pipeline, to pre-populate the form instead of starting blank.
+function populateProblemItem(template, problem) {
+    if (!template || !problem) {
+        return;
+    }
+
+    const typeSelect = template.querySelector('.problem-type');
+    if (typeSelect) {
+        typeSelect.value = problem.type === 'multiple_choice' ? 'multiple_choice' : 'free_response';
+    }
+
+    const promptInput = template.querySelector('.problem-prompt');
+    if (promptInput) {
+        promptInput.value = problem.prompt || '';
+    }
+
+    if (problem.type === 'multiple_choice') {
+        const choices = Array.isArray(problem.choices) ? problem.choices : [];
+
+        while (template.querySelectorAll('.choice-row').length < choices.length) {
+            addChoiceRow(template);
+        }
+        while (template.querySelectorAll('.choice-row').length > choices.length && template.querySelectorAll('.choice-row').length > MIN_CHOICES) {
+            removeChoiceRow(template);
+        }
+
+        const rows = Array.from(template.querySelectorAll('.choice-row'));
+        rows.forEach((row, index) => {
+            const input = row.querySelector('.choice-input');
+            const radio = row.querySelector('.choice-correct-radio');
+            const choiceText = choices[index] || '';
+
+            if (input) {
+                input.value = choiceText;
+            }
+            if (radio && choiceText && choiceText === problem.answer) {
+                radio.checked = true;
+            }
+        });
+    } else {
+        const answerInput = template.querySelector('.problem-answer');
+        if (answerInput) {
+            answerInput.value = problem.answer || '';
+        }
+    }
+
+    updateProblemItemTypeFields(template);
 }
 
 function initUserSearch() {
@@ -1675,19 +2026,7 @@ document.addEventListener("DOMContentLoaded", () => {
     if (profileRoute.view === "profile") {
         renderProfilePage();
     } else if (window.location.pathname.startsWith("/contribute")) {
-        const suggestForm = document.getElementById("suggest-problem-set-form");
-        const addProblemButton = document.getElementById("add-problem-button");
-
-        if (suggestForm) {
-            suggestForm.addEventListener("submit", submitProblemSetSuggestion);
-        }
-
-        if (addProblemButton) {
-            addProblemButton.addEventListener("click", addProblemItem);
-        }
-
-        initSuggestionFormSelects();
-        addProblemItem();
+        initContributePage();
     } else if (window.location.pathname.startsWith("/topics/network")) {
         renderTopicNetworkPage();
     } else if (isProblemsRoute) {
