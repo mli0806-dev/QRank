@@ -9,6 +9,7 @@
   "scripts": {
     "start": "node backend/server.js",
     "migrate": "node database/migrate.js",
+    "sync-content": "node database/sync-content.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [],
@@ -19,7 +20,6 @@
     "@vercel/analytics": "^2.0.1",
     "bcrypt": "^6.0.0",
     "cookie-parser": "^1.4.7",
-    "cors": "^2.8.6",
     "dotenv": "^17.4.2",
     "express": "^5.2.1",
     "express-rate-limit": "^8.6.2",

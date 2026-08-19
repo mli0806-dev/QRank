@@ -297,7 +297,6 @@ async function renderTopicNetworkPage() {
             throw new Error(`API error ${response.status} ${response.statusText}`);
         }
         const topics = await response.json();
-        console.log('Topic network: loaded', Array.isArray(topics) ? topics.length : 'unknown', 'topics');
         initTopicNetworkMap(topics);
     } catch (error) {
         console.error('Failed to load topic network data:', error);

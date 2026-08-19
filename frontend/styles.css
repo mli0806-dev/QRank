@@ -42,7 +42,7 @@ a, button {
 
 .headerbox {
   display: flex;
-  padding: 30px 60px 30px 60px;
+  padding: 45px 60px 45px 60px;
   text-align: left;
   align-items: center;
   justify-content: space-between;
@@ -115,7 +115,7 @@ a, button {
 
 .welcometext {
   text-align: center;
-  margin-top: 80px;
+  margin-top: 50px;
   font-size: 36px;
   font-weight: 500;
 }
@@ -898,6 +898,7 @@ main.topicbg {
   font-family: inherit;
   font-size: 16px;
   color: var(--text);
+  padding: 10px 14px;
 }
 
 .calendarheader {

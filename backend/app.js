@@ -3,7 +3,6 @@ const path = require('path');
 require('dotenv').config({ path: path.join(__dirname, '../.env') });
 
 const express = require("express");
-const cors = require("cors");
 const cookieParser = require('cookie-parser');
 const bcrypt = require('bcrypt');
 const crypto = require('crypto');
@@ -63,6 +62,17 @@ const passwordResetLimiter = rateLimit({
     standardHeaders: true,
     legacyHeaders: false,
     message: { message: "Too many attempts. Please try again later." }
+});
+
+// Looser than authLimiter -- these are legitimate public-use endpoints (submitting
+// a suggestion, checking a quiz answer), not credential attempts, but both are
+// unauthenticated writes/compute that could otherwise be spammed or answer-brute-forced.
+const publicWriteLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000,
+    max: 60,
+    standardHeaders: true,
+    legacyHeaders: false,
+    message: { message: "Too many requests. Please try again later." }
 });
 
 function generateVerificationCode() {
@@ -139,6 +149,18 @@ const contentSecurityPolicy = [
 
 app.use((req, res, next) => {
     res.setHeader("Content-Security-Policy", contentSecurityPolicy);
+    // Redundant with CSP's frame-ancestors for modern browsers, kept for older ones.
+    res.setHeader("X-Frame-Options", "SAMEORIGIN");
+    // Stops browsers from guessing content-types and executing e.g. an uploaded
+    // "image" as script.
+    res.setHeader("X-Content-Type-Options", "nosniff");
+    // Don't leak full URLs (which can contain query params) to third-party sites
+    // linked from QRank; still send the origin for same-site navigation.
+    res.setHeader("Referrer-Policy", "strict-origin-when-cross-origin");
+    // Vercel already forces HTTPS at the edge; this tells the browser to never
+    // even try HTTP for this origin again, closing the window an attacker would
+    // otherwise have on a user's very first request.
+    res.setHeader("Strict-Transport-Security", "max-age=63072000; includeSubDomains");
     next();
 });
 
@@ -153,7 +175,6 @@ app.use(express.static(frontendPath, {
         }
     }
 }));
-app.use(cors());
 app.use(express.json());
 app.use(cookieParser(process.env.COOKIE_SECRET));
 
@@ -237,7 +258,7 @@ app.get("/api/problem-sets/count", async (req, res) => {
     }
 });
 
-app.post("/api/problem-set-suggestions", async (req, res) => {
+app.post("/api/problem-set-suggestions", publicWriteLimiter, async (req, res) => {
     try {
         const { name, description, topic, subtopic, tags, problems, submitter } = req.body || {};
 
@@ -475,7 +496,7 @@ app.get("/api/problem-sets", async (req, res) => {
     }
 });
 
-app.post("/api/problem-sets", auth.requireAuth, async (req, res) => {
+app.post("/api/problem-sets", auth.requireAdmin, async (req, res) => {
     try {
         const { name, description, topic, subtopic, tags } = req.body || {};
 
@@ -554,7 +575,7 @@ app.get("/api/problem-sets/:id", async (req, res) => {
     }
 });
 
-app.post("/api/problem-sets/:id/check", async (req, res) => {
+app.post("/api/problem-sets/:id/check", publicWriteLimiter, async (req, res) => {
     try {
         const { id } = req.params;
         const submitted = (req.body && req.body.answers) || {};
@@ -1003,7 +1024,7 @@ async function verifyGoogleCredential(credential) {
     return profile;
 }
 
-app.post("/api/auth/google", async (req, res) => {
+app.post("/api/auth/google", authLimiter, async (req, res) => {
     try {
         if (!googleClientId) {
             return res.status(503).json({ message: "Google sign-in is not configured." });
