@@ -719,7 +719,14 @@ app.post("/api/problem-sets/:id/check", publicWriteLimiter, async (req, res) => 
 
         for (const problem of problemRows) {
             const submittedAnswer = String(submitted[problem.id] ?? "").trim();
-            const acceptableAnswers = problem.answer.split(',').map(a => a.trim().toLowerCase());
+            // Comma-splitting is only meaningful for free_response, where the answer
+            // field intentionally holds several acceptable phrasings (e.g. "7, seven").
+            // For multiple_choice, answer is the literal text of exactly one choice --
+            // splitting it on commas corrupts any choice that itself contains one
+            // (coordinate pairs, intervals, lists), so it must match in full instead.
+            const acceptableAnswers = problem.type === "multiple_choice"
+                ? [problem.answer.trim().toLowerCase()]
+                : problem.answer.split(',').map(a => a.trim().toLowerCase());
             const isCorrect = acceptableAnswers.includes(submittedAnswer.toLowerCase()) && submittedAnswer !== "";
 
             results[problem.id] = isCorrect;

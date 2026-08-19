@@ -1625,8 +1625,25 @@ async function submitProblemSetSuggestion(event) {
         }
 
         if (editingSuggestionId) {
-            statusElement.textContent = "Changes saved. Redirecting to review...";
-            window.location.href = "/review/";
+            // Only admins can ever reach this edit flow in the first place, so
+            // routing their own edit through the manual review queue is a
+            // pointless extra step -- approve it immediately and go straight
+            // back to the live page instead.
+            statusElement.textContent = "Publishing changes...";
+
+            const approveResponse = await fetch(`/api/admin/problem-set-suggestions/${encodeURIComponent(editingSuggestionId)}`, {
+                method: "PATCH",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ status: "approved" })
+            });
+            const approveData = await approveResponse.json();
+
+            if (!approveResponse.ok) {
+                statusElement.textContent = approveData.message || "Changes saved, but publishing failed.";
+                return;
+            }
+
+            window.location.href = `/problems/${encodeURIComponent(approveData.createdProblemSetId)}`;
             return;
         }
 
