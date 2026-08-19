@@ -1,5 +1,6 @@
-// Reusable sync: pushes local topics/subtopics content to a target database
-// (e.g. production TiDB), using an upsert-by-id so it's always safe to re-run.
+// Reusable sync: pushes local topics/subtopics/units content to a target
+// database (e.g. production TiDB), using an upsert-by-id so it's always safe
+// to re-run.
 //
 // Usage:
 //   SYNC_TARGET_HOST=... SYNC_TARGET_PORT=4000 SYNC_TARGET_USER=... \
@@ -35,6 +36,12 @@ const TABLES = {
     subtopics: {
         columns: ['id', 'topic_id', 'name', 'tags'],
         conflictUpdate: ['topic_id', 'name', 'tags']
+    },
+    // Must stay after subtopics -- units.subtopic_id is a foreign key into it,
+    // and TABLES is synced in insertion order.
+    units: {
+        columns: ['id', 'subtopic_id', 'name'],
+        conflictUpdate: ['subtopic_id', 'name']
     }
 };
 

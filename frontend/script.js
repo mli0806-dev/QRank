@@ -412,6 +412,8 @@ function initTopicNetworkMap(topics = []) {
     }
 
     const selectedTopicIndexes = new Set();
+    // Keyed "topicIndex-subtopicIndex" -- a subtopic expanded to show its units.
+    const selectedSubtopicKeys = new Set();
 
     const handleMapClick = (event) => {
         let target = event.target;
@@ -437,10 +439,16 @@ function initTopicNetworkMap(topics = []) {
                 renderMap();
             }
         } else if (type === "subtopic") {
-            const topicSlug = node.dataset.topicSlug;
-            const subtopicSlug = node.dataset.subtopicSlug;
-            if (topicSlug && subtopicSlug) {
-                window.location.href = `/topics/${topicSlug}/${subtopicSlug}`;
+            const topicIndex = Number(node.dataset.topicIndex);
+            const subtopicIndex = Number(node.dataset.subtopicIndex);
+            if (!Number.isNaN(topicIndex) && !Number.isNaN(subtopicIndex)) {
+                const key = `${topicIndex}-${subtopicIndex}`;
+                if (selectedSubtopicKeys.has(key)) {
+                    selectedSubtopicKeys.delete(key);
+                } else {
+                    selectedSubtopicKeys.add(key);
+                }
+                renderMap();
             }
         }
     };
@@ -611,10 +619,14 @@ function initTopicNetworkMap(topics = []) {
         }));
 
         const expandedSubtopicData = [];
+        // Resolved position of every currently-rendered subtopic, keyed the same
+        // way as selectedSubtopicKeys, so the unit layer below can use a subtopic
+        // as its own "parentNode" for the exact same expansion algorithm.
+        const subtopicNodesByKey = new Map();
 
-        Array.from(selectedTopicIndexes).forEach((index) => {
-            const topic = topics[index];
-            const parentNode = nodes[index] || { x: centerX, y: centerY, color: `hsl(0, 0%, ${getNeutralLightness()}%)` };
+        Array.from(selectedTopicIndexes).forEach((topicIndex) => {
+            const topic = topics[topicIndex];
+            const parentNode = nodes[topicIndex] || { x: centerX, y: centerY, color: `hsl(0, 0%, ${getNeutralLightness()}%)` };
             const parentAngle = Math.atan2(parentNode.y - centerY, parentNode.x - centerX);
             const angled = getSubtopicAngles(parentNode, topic?.subtopics || []);
 
@@ -625,20 +637,55 @@ function initTopicNetworkMap(topics = []) {
 
                 obstacles.push({ x, y, halfW, halfH });
 
+                const subtopicIndex = topic.subtopics.indexOf(sub);
+                const subtopicKey = `${topicIndex}-${subtopicIndex}`;
+                const isExpanded = selectedSubtopicKeys.has(subtopicKey);
+                subtopicNodesByKey.set(subtopicKey, { x, y, color: parentNode.color, subtopic: sub });
+
                 expandedSubtopicData.push({
                     line: `<line x1="${parentNode.x}" y1="${parentNode.y}" x2="${x}" y2="${y}" style="stroke: ${parentNode.color};" />`,
-                    markup: `<button type="button" class="network-node subtopic" data-type="subtopic" data-topic-slug="${encodeURIComponent(slugify(topic.topic))}" data-subtopic-slug="${encodeURIComponent(slugify(sub.name))}" style="left: ${x}px; top: ${y}px; color: ${parentNode.color};">${escapeHtml(sub.name)}</button>`
+                    markup: `<button type="button" class="network-node subtopic${isExpanded ? ' selected' : ''}" data-type="subtopic" data-topic-slug="${encodeURIComponent(slugify(topic.topic))}" data-subtopic-slug="${encodeURIComponent(slugify(sub.name))}" data-topic-index="${topicIndex}" data-subtopic-index="${subtopicIndex}" style="left: ${x}px; top: ${y}px; color: ${parentNode.color};">${escapeHtml(sub.name)}</button>`
                 });
             });
         });
 
-        const lines = `${topicLines}${expandedSubtopicData.map((item) => item.line).join("")}`;
+        // Units around a subtopic, using the exact same cone-packing/collision-avoidance
+        // algorithm as subtopics around a topic -- the subtopic's own resolved position
+        // just becomes the "parentNode" for another getSubtopicAngles/resolveSubtopicPosition pass.
+        const expandedUnitData = [];
+
+        Array.from(selectedSubtopicKeys).forEach((key) => {
+            const subtopicNode = subtopicNodesByKey.get(key);
+            if (!subtopicNode) {
+                // Parent subtopic isn't currently on the map (its topic got collapsed) -- nothing to expand.
+                return;
+            }
+
+            const parentAngle = Math.atan2(subtopicNode.y - centerY, subtopicNode.x - centerX);
+            const angled = getSubtopicAngles(subtopicNode, subtopicNode.subtopic.units || []);
+
+            angled.forEach(({ sub: unit, angle, radius }) => {
+                const halfW = nodeHalfWidth(unit.name, 36);
+                const halfH = NODE_HALF_HEIGHT;
+                const { x, y } = resolveSubtopicPosition(subtopicNode, angle, radius, halfW, halfH, obstacles, parentAngle);
+
+                obstacles.push({ x, y, halfW, halfH });
+
+                expandedUnitData.push({
+                    line: `<line x1="${subtopicNode.x}" y1="${subtopicNode.y}" x2="${x}" y2="${y}" style="stroke: ${subtopicNode.color};" />`,
+                    markup: `<button type="button" class="network-node unit" data-type="unit" style="left: ${x}px; top: ${y}px; color: ${subtopicNode.color};">${escapeHtml(unit.name)}</button>`
+                });
+            });
+        });
+
+        const lines = `${topicLines}${expandedSubtopicData.map((item) => item.line).join("")}${expandedUnitData.map((item) => item.line).join("")}`;
 
         const nodeMarkup = nodes.map((node, index) => `
             <button type="button" class="network-node topic${selectedTopicIndexes.has(index) ? ' selected' : ''}" data-type="topic" data-index="${index}" data-topic-slug="${encodeURIComponent(node.slug || '')}" style="left: ${node.x}px; top: ${node.y}px; color: ${node.color};">${escapeHtml(node.label)}</button>
         `).join("");
 
         const subtopicMarkup = expandedSubtopicData.map((item) => item.markup).join("");
+        const unitMarkup = expandedUnitData.map((item) => item.markup).join("");
 
         map.innerHTML = `
             <svg class="network-lines" viewBox="0 0 1400 900" preserveAspectRatio="xMinYMin meet">
@@ -647,6 +694,7 @@ function initTopicNetworkMap(topics = []) {
             </svg>
             ${nodeMarkup}
             ${subtopicMarkup}
+            ${unitMarkup}
         `;
     }
 
@@ -716,6 +764,7 @@ function initTopicNetworkMap(topics = []) {
 
     collapseButton?.addEventListener("click", () => {
         selectedTopicIndexes.clear();
+        selectedSubtopicKeys.clear();
         renderMap();
     });
 

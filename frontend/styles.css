@@ -311,7 +311,7 @@ main.topicbg {
 
 
 .topicnetworkpage {
-  min-height: calc(100vh - 72px);
+  min-height: calc(100vh - 111px);
   padding: 0;
   margin: 0;
 }
@@ -319,7 +319,7 @@ main.topicbg {
 .network-map-wrapper {
   position: relative;
   width: 100%;
-  height: calc(100vh - 72px);
+  height: calc(100vh - 111px);
   overflow: hidden;
   background-color: var(--bg);
   touch-action: none;
@@ -447,6 +447,11 @@ main.topicbg {
 
 .network-node.subtopic {
   padding: 10px 18px;
+}
+
+.network-node.unit {
+  padding: 8px 14px;
+  font-size: 13px;
 }
 
 .network-node:active {

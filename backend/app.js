@@ -621,11 +621,16 @@ app.get("/api/topics", async (req, res) => {
                 topics.name AS topic,
                 subtopics.id AS subtopic_id,
                 subtopics.name AS subtopic,
-                subtopics.tags
+                subtopics.tags,
+                units.id AS unit_id,
+                units.name AS unit_name
             FROM topics
             LEFT JOIN subtopics ON topics.id = subtopics.topic_id
+            LEFT JOIN units ON units.subtopic_id = subtopics.id
         `);
         const groupedtopics = {};
+        const subtopicsById = new Map();
+
         rows.forEach(row => {
             if (!groupedtopics[row.topic]) {
                 groupedtopics[row.topic] = {
@@ -633,12 +638,23 @@ app.get("/api/topics", async (req, res) => {
                     subtopics: []
                 };
             }
+
             if (row.subtopic) {
-                groupedtopics[row.topic].subtopics.push({
-                    id: row.subtopic_id,
-                    name: row.subtopic,
-                    tags: row.tags
-                });
+                let subtopicEntry = subtopicsById.get(row.subtopic_id);
+                if (!subtopicEntry) {
+                    subtopicEntry = {
+                        id: row.subtopic_id,
+                        name: row.subtopic,
+                        tags: row.tags,
+                        units: []
+                    };
+                    subtopicsById.set(row.subtopic_id, subtopicEntry);
+                    groupedtopics[row.topic].subtopics.push(subtopicEntry);
+                }
+
+                if (row.unit_id) {
+                    subtopicEntry.units.push({ id: row.unit_id, name: row.unit_name });
+                }
             }
         });
         const nested = Object.values(groupedtopics);
