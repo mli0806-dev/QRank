@@ -26,6 +26,7 @@ h2 {
 :root {
   --bg: rgb(255, 255, 255);
   --text: black;
+  --textsec: rgb(100, 100, 100);
   --card: rgb(245, 245, 245);
   --border: rgb(190, 190, 190);
 }
@@ -33,20 +34,28 @@ h2 {
 .dark {
   --bg: rgb(18, 18, 18);
   --text: rgb(235, 235, 235);
+  --textsec: rgb(165, 165, 165);
   --card: rgb(40, 40, 40);
-  --border: rgb(100, 100, 100);
+  --border: rgb(90, 90, 90);
 }
 
 .sitetitle {
-  font-size: 20px;
+  display: inline-flex;
+  align-items: center;
   text-decoration: none;
   color: var(--text);
   font-weight: 500;
 }
 
+.sitetitlelogo {
+  width: 48px;
+  height: 48px;
+  flex-shrink: 0;
+}
+
 .headerbox {
   display: flex;
-  padding: 45px 60px 45px 60px;
+  padding: 30px 45px 30px 45px;
   text-align: left;
   align-items: center;
   justify-content: space-between;
@@ -172,6 +181,7 @@ h2 {
   margin-block-start: 0;
   margin-block-end: 0;
   padding: 20px;
+  padding-top: 0;
   background-color: var(--card);
 }
 
@@ -279,7 +289,7 @@ main.topicbg {
 
 .topicdetailitemmeta {
   font-size: 14px;
-  color: var(--text);
+  color: var(--textsec);
   line-height: 1.5;
 }
 
@@ -294,7 +304,7 @@ main.topicbg {
 
 .topicdetailtext {
   font-size: 20px;
-  margin-top: 0;
+  margin: 0;
 }
 
 .topicdetailsection {
@@ -315,7 +325,6 @@ main.topicbg {
   font-size: 24px;
   font-weight: normal;
 }
-
 
 .topicnetworkpage {
   min-height: calc(100vh - 111px);
@@ -829,7 +838,7 @@ main.topicbg {
 .resetstatus {
   margin-top: 12px;
   font-size: 14px;
-  color: var(--text);
+  color: var(--textsec);
 }
 
 .hidden {
@@ -887,12 +896,99 @@ main.topicbg {
   color: var(--textsec);
 }
 
+.calendarlayout {
+  display: flex;
+  gap: 50px;
+  justify-content: center;
+  align-items: flex-start;
+  flex-wrap: wrap;
+}
+
 .calendarbox {
-  margin: 50px 50px;
-  max-width: 600px;
+  margin-top: 30px;
+  width: 500px;
   background-color: var(--card);
   padding: 20px;
   border: 1px solid var(--border);
+}
+
+.savedcompetitionspanel {
+  width: 500px;
+  box-sizing: content-box;
+  margin-top: 30px;
+  padding: 20px;
+  background-color: var(--card);
+  border: 1px solid var(--border);
+}
+
+.savedcompetitionsheader {
+  font-size: 20px;
+  font-weight: 500;
+  margin: 0 0 16px;
+}
+
+.savedcompetitionsempty {
+  font-size: 14px;
+  color: var(--textsec);
+  margin: 0;
+}
+
+.savedcompetitionslist {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.savedcompetitionitem {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 10px 12px;
+  background-color: var(--bg);
+  border: 1px solid var(--border);
+}
+
+.savedcompetitioninfo {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.savedcompetitiontitle {
+  font-size: 15px;
+  font-weight: 500;
+  color: var(--text);
+  text-decoration: none;
+}
+
+.savedcompetitiontitle:hover {
+  text-decoration: underline;
+}
+
+.savedcompetitiondates {
+  font-size: 13px;
+  color: var(--textsec);
+}
+
+.savedcompetitionremove {
+  border: none;
+  background: none;
+  color: var(--textsec);
+  font-size: 13px;
+  font-family: inherit;
+  cursor: pointer;
+  text-decoration: underline;
+  padding: 0;
+  flex-shrink: 0;
+}
+
+.savedcompetitionremove:hover {
+  color: var(--text);
 }
 
 .calendarlabels {
@@ -940,6 +1036,10 @@ main.topicbg {
 
 .calendarcell {
   font-size: 12px;
+}
+
+.competitiontime {
+  color: var(--textsec);
 }
 
 .auth {
@@ -992,6 +1092,32 @@ main.topicbg {
   padding: 10px 14px;
 }
 
+.authactions {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.resetlink {
+  border: none;
+  background: none;
+  color: var(--textsec);
+  font-family: inherit;
+  font-size: 14px;
+  text-decoration: underline;
+  cursor: pointer;
+  padding: 0;
+}
+
+.resetlink:hover {
+  opacity: 1;
+}
+
+#loginResetPanel {
+  margin-top: 16px;
+}
+
 .autherrorhidden {
   display: none;
 }
@@ -999,7 +1125,7 @@ main.topicbg {
 .authdivider {
   padding-bottom: 20px;
   font-size: 14px;
-  color: var(--text);
+  color: var(--textsec);
   text-align: center;
 }
 
@@ -1009,6 +1135,7 @@ main.topicbg {
   gap: 8px;
   font-size: 14px;
   line-height: 1.4;
+  color: var(--textsec);
 }
 
 .authcheckboxlabel input {
@@ -1016,12 +1143,15 @@ main.topicbg {
   flex-shrink: 0;
 }
 
+.authcheckboxlabel .footerlink {
+  color: var(--textsec);
+}
+
 .authcheckboxnote {
   margin: -12px 0 12px;
-  font-size: 13px;
-  color: var(--text);
+  font-size: 14px;
+  color: var(--textsec);
   text-align: center;
-  opacity: 0.75;
 }
 
 .authcheckboxnote.hidden {
@@ -1078,7 +1208,7 @@ main.topicbg {
 }
 
 .inputs::placeholder {
-  color: rgba(120, 120, 120);
+  color: var(--textsec);
 }
 
 .sitefooter {
@@ -1202,7 +1332,6 @@ main.topicbg {
   margin: 0;
 }
 
-/* ---------- Mobile navigation ---------- */
 .navtoggle {
   display: none;
   background: none;
@@ -1215,7 +1344,6 @@ main.topicbg {
   font-family: inherit;
 }
 
-/* ---------- Tablet layout ---------- */
 @media (max-width: 900px) {
   .headerbox {
     padding: 16px 20px;
@@ -1225,14 +1353,6 @@ main.topicbg {
     flex: 1;
     min-width: 0;
     gap: 12px;
-  }
-
-  .sitetitle {
-    font-size: 16px;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    max-width: 46vw;
   }
 
   .navtoggle {
@@ -1296,9 +1416,17 @@ main.topicbg {
     padding: 28px 20px;
   }
 
+  .calendarlayout {
+    margin: 0 16px;
+  }
+
   .calendarbox {
-    margin: 24px 16px;
+    margin: 24px 0;
     padding: 14px;
+  }
+
+  .savedcompetitionspanel {
+    width: 100%;
   }
 
   .calendarheader {
@@ -1334,7 +1462,6 @@ main.topicbg {
   }
 }
 
-/* ---------- Phone layout ---------- */
 @media (max-width: 600px) {
   .welcometext {
     font-size: 28px;
@@ -1352,11 +1479,6 @@ main.topicbg {
   .titleboxes {
     width: 100%;
     max-width: 280px;
-  }
-
-  .sitetitle {
-    max-width: 40vw;
-    font-size: 14px;
   }
 
   .network-map-controls {

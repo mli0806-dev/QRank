@@ -33,10 +33,6 @@ const mailerReady = Boolean(
     process.env.SMTP_PASS &&
     process.env.SMTP_FROM
 );
-// Requires an explicit opt-in on top of NODE_ENV -- a misconfigured/missing
-// NODE_ENV alone should never be able to resurrect a path that hands out
-// verification codes in an API response. This flag is only ever meant to be
-// set in a local .env, never in a real deployment's environment variables.
 const allowDevEmailFallback = process.env.NODE_ENV !== "production" && process.env.DEV_PASSWORD_RESET_FALLBACK === "true";
 const mailer = mailerReady
     ? nodemailer.createTransport({
@@ -68,9 +64,6 @@ const passwordResetLimiter = rateLimit({
     message: { message: "Too many attempts. Please try again later." }
 });
 
-// Looser than authLimiter -- these are legitimate public-use endpoints (submitting
-// a suggestion, checking a quiz answer), not credential attempts, but both are
-// unauthenticated writes/compute that could otherwise be spammed or answer-brute-forced.
 const publicWriteLimiter = rateLimit({
     windowMs: 15 * 60 * 1000,
     max: 60,
@@ -90,10 +83,6 @@ function isPasswordStrongEnough(password) {
     return typeof password === "string" && password.length >= MIN_PASSWORD_LENGTH;
 }
 
-// Subtopics carry the real course codes for their curriculum (e.g. "IM1",
-// "XLPHYS", "AP Calc BC" -- see subtopics.tags). Any problem set assigned to
-// that subtopic should pick those up automatically rather than relying on
-// whoever created it to type them in by hand.
 async function getCourseTagsForSubtopic(queryable, topic, subtopic) {
     if (!topic || !subtopic) {
         return [];
@@ -173,27 +162,15 @@ const contentSecurityPolicy = [
 
 app.use((req, res, next) => {
     res.setHeader("Content-Security-Policy", contentSecurityPolicy);
-    // Redundant with CSP's frame-ancestors for modern browsers, kept for older ones.
     res.setHeader("X-Frame-Options", "SAMEORIGIN");
-    // Stops browsers from guessing content-types and executing e.g. an uploaded
-    // "image" as script.
     res.setHeader("X-Content-Type-Options", "nosniff");
-    // Don't leak full URLs (which can contain query params) to third-party sites
-    // linked from QRank; still send the origin for same-site navigation.
     res.setHeader("Referrer-Policy", "strict-origin-when-cross-origin");
-    // Vercel already forces HTTPS at the edge; this tells the browser to never
-    // even try HTTP for this origin again, closing the window an attacker would
-    // otherwise have on a user's very first request.
     res.setHeader("Strict-Transport-Security", "max-age=63072000; includeSubDomains");
     next();
 });
 
 app.use(express.static(frontendPath, {
     setHeaders: (res, filePath) => {
-        // Images change rarely and have no cache-busting filename hash, so a
-        // week-long cache is safe. HTML/JS/CSS are excluded -- those change
-        // constantly during active development and aren't hashed either, so
-        // caching them the same way would serve stale code after a deploy.
         if (/\.(png|jpe?g|webp|svg|gif|ico)$/i.test(filePath)) {
             res.setHeader("Cache-Control", "public, max-age=604800");
         }
@@ -243,11 +220,6 @@ app.post("/api/logout", async (req, res) => {
     }
 });
 
-// Triggered by Vercel Cron (see vercel.json) on serverless; the traditional-host
-// setInterval in server.js calls the same two cleanup functions directly and
-// doesn't need this route at all. Either trigger is fine because every query
-// that reads these tables already filters on expires_at, so a delayed cleanup
-// never affects correctness — only table size.
 app.post("/api/cron/cleanup", async (req, res) => {
     const expectedAuth = process.env.CRON_SECRET ? `Bearer ${process.env.CRON_SECRET}` : null;
 
@@ -301,8 +273,6 @@ app.post("/api/problem-set-suggestions", publicWriteLimiter, auth.requireAuth, a
             .filter(Boolean)
             .join(',');
         const cleanProblems = String(problems).trim();
-        // Trusting the authenticated session's username rather than a client-supplied
-        // "submitter" field so a logged-in user can't submit a suggestion under someone else's name.
         const cleanSubmitter = req.user.username;
 
         const [result] = await db.query(
@@ -409,12 +379,6 @@ app.put("/api/admin/problem-set-suggestions/:id", auth.requireAdmin, async (req,
     }
 });
 
-// Admin-only entry point into editing an already-live problem set: instead of a
-// separate in-place edit UI, this clones the live problem_set + its problems into
-// a new pending suggestion, which the admin then edits through the exact same
-// form/review pipeline used for brand-new submissions. Approving it later updates
-// the original problem_set in place (see the editing_problem_set_id handling below)
-// rather than publishing a duplicate.
 app.post("/api/admin/problem-sets/:id/edit", auth.requireAdmin, async (req, res) => {
     try {
         const [problemSetRows] = await db.query(
@@ -479,7 +443,6 @@ app.patch("/api/admin/problem-set-suggestions/:id", auth.requireAdmin, async (re
         const suggestion = suggestionRows[0];
 
         if (status === "rejected") {
-            // Rejected suggestions don't hang around for review clutter -- delete outright.
             await connection.query("DELETE FROM problem_set_suggestions WHERE id = ?", [id]);
             await connection.commit();
             return res.json({ message: "Suggestion rejected and deleted.", deleted: true });
@@ -512,10 +475,6 @@ app.patch("/api/admin/problem-set-suggestions/:id", auth.requireAdmin, async (re
             let publishedProblemSetId = suggestion.editing_problem_set_id;
 
             if (publishedProblemSetId) {
-                // This suggestion is an edit of an existing problem set -- update it in
-                // place instead of publishing a duplicate. Replacing all of its problems
-                // (rather than trying to diff old vs new) keeps this simple and correct;
-                // ON DELETE CASCADE on problems.problem_set_id handles the cleanup.
                 const [updateResult] = await connection.query(
                     "UPDATE problem_sets SET name = ?, description = ?, topic = ?, subtopic = ?, unit = ?, tags = ? WHERE id = ?",
                     [suggestion.name, suggestion.description, suggestion.topic, suggestion.subtopic, suggestion.unit, finalTags, publishedProblemSetId]
@@ -549,14 +508,11 @@ app.patch("/api/admin/problem-set-suggestions/:id", auth.requireAdmin, async (re
                 );
             }
 
-            // Once published, this suggestion has done its job -- it's now a real
-            // problem_sets row, so there's no reason to keep the suggestion around too.
             await connection.query("DELETE FROM problem_set_suggestions WHERE id = ?", [id]);
             await connection.commit();
             return res.json({ message: "Suggestion approved and published.", createdProblemSetId: publishedProblemSetId, deleted: true });
         }
 
-        // "pending" or "reviewed" -- just update the status flag, nothing to delete.
         await connection.query(
             "UPDATE problem_set_suggestions SET status = ? WHERE id = ?",
             [status, id]
@@ -745,11 +701,6 @@ app.post("/api/problem-sets/:id/check", publicWriteLimiter, async (req, res) => 
 
         for (const problem of problemRows) {
             const submittedAnswer = String(submitted[problem.id] ?? "").trim();
-            // Comma-splitting is only meaningful for free_response, where the answer
-            // field intentionally holds several acceptable phrasings (e.g. "7, seven").
-            // For multiple_choice, answer is the literal text of exactly one choice --
-            // splitting it on commas corrupts any choice that itself contains one
-            // (coordinate pairs, intervals, lists), so it must match in full instead.
             const acceptableAnswers = problem.type === "multiple_choice"
                 ? [problem.answer.trim().toLowerCase()]
                 : problem.answer.split(',').map(a => a.trim().toLowerCase());
@@ -969,11 +920,6 @@ app.post("/api/password-reset/request", passwordResetLimiter, async (req, res) =
 
         await deleteExpiredPasswordResetCodes();
 
-        // Per-account cooldown, independent of the passwordResetLimiter above (which
-        // is keyed by IP) -- stops one account from being email-bombed by requests
-        // spread across many source IPs. The response is identical either way, so
-        // this can't be used to tell "code sent" apart from "cooldown active", which
-        // would otherwise leak that the account exists and was recently targeted.
         const [recentCodes] = await db.query(
             "SELECT id FROM password_reset_codes WHERE user_id = ? AND used_at IS NULL AND created_at > (NOW() - INTERVAL ? SECOND) LIMIT 1",
             [user.id, RESET_REQUEST_COOLDOWN_SECONDS]
@@ -1037,9 +983,6 @@ app.post("/api/password-reset/verify", passwordResetLimiter, async (req, res) =>
 
         const user = users[0] || null;
 
-        // Scoped to this one account instead of scanning every outstanding code in
-        // the table -- narrows the guess surface to a single code and keeps this a
-        // single bcrypt.compare regardless of how many resets are in flight system-wide.
         let matchedToken = null;
         if (user) {
             const [tokens] = await db.query(
@@ -1049,10 +992,6 @@ app.post("/api/password-reset/verify", passwordResetLimiter, async (req, res) =>
             matchedToken = tokens[0] || null;
         }
 
-        // Always compare against something, even for a nonexistent account or one
-        // with no outstanding code -- otherwise those cases return faster than a
-        // real mismatched-code attempt, a timing side channel that leaks account
-        // existence (same fix already applied to /api/login).
         const codeMatches = await bcrypt.compare(String(code), matchedToken ? matchedToken.code_hash : dummyPasswordHash);
 
         if (!user || !matchedToken || !codeMatches) {
@@ -1130,6 +1069,61 @@ app.get("/api/competitions/:id", async (req, res) => {
     } catch (err) {
         console.error(err);
         res.status(500).json({ message: "Database query failed." });
+    }
+});
+
+app.get("/api/saved-competitions", auth.requireAuth, async (req, res) => {
+    try {
+        const [rows] = await db.query(`
+            SELECT c.id, c.title, c.category,
+                DATE_FORMAT(c.start_date, '%Y-%m-%d') AS start_date,
+                DATE_FORMAT(c.end_date, '%Y-%m-%d') AS end_date,
+                TIME_FORMAT(c.start_time, '%l:%i:%p') AS start_time,
+                TIME_FORMAT(c.end_time, '%l:%i:%p') AS end_time
+            FROM saved_competitions sc
+            JOIN competitions c ON c.id = sc.competition_id
+            WHERE sc.user_id = ?
+            ORDER BY c.start_date ASC, c.start_time ASC
+        `, [req.user.id]);
+
+        res.json(rows);
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ message: "Failed to load saved competitions." });
+    }
+});
+
+app.post("/api/competitions/:id/save", auth.requireAuth, async (req, res) => {
+    try {
+        const [competitionRows] = await db.query("SELECT id FROM competitions WHERE id = ? LIMIT 1", [req.params.id]);
+
+        if (competitionRows.length === 0) {
+            return res.status(404).json({ message: "Competition not found." });
+        }
+
+        await db.query(
+            "INSERT IGNORE INTO saved_competitions (user_id, competition_id) VALUES (?, ?)",
+            [req.user.id, req.params.id]
+        );
+
+        res.status(201).json({ message: "Competition saved." });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ message: "Failed to save competition." });
+    }
+});
+
+app.delete("/api/competitions/:id/save", auth.requireAuth, async (req, res) => {
+    try {
+        await db.query(
+            "DELETE FROM saved_competitions WHERE user_id = ? AND competition_id = ?",
+            [req.user.id, req.params.id]
+        );
+
+        res.json({ message: "Competition unsaved." });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ message: "Failed to unsave competition." });
     }
 });
 

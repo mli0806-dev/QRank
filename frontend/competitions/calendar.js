@@ -60,6 +60,77 @@ async function calLoad() {
     }
 }
 
+async function loadSavedCompetitions() {
+    const listEl = document.getElementById("savedCompetitionsList");
+    const emptyEl = document.getElementById("savedCompetitionsEmpty");
+    if (!listEl || !emptyEl) {
+        return;
+    }
+
+    const currentUser = await getCurrentUser();
+    if (!currentUser) {
+        emptyEl.textContent = "Log in to save competitions you're interested in.";
+        listEl.innerHTML = "";
+        return;
+    }
+
+    try {
+        const response = await fetch("/api/saved-competitions");
+        if (!response.ok) {
+            throw new Error(`API error ${response.status}`);
+        }
+        renderSavedCompetitions(await response.json());
+    } catch (error) {
+        console.error("Failed to load saved competitions:", error);
+        emptyEl.textContent = "Unable to load your saved competitions right now.";
+        listEl.innerHTML = "";
+    }
+}
+
+function renderSavedCompetitions(savedCompetitions) {
+    const listEl = document.getElementById("savedCompetitionsList");
+    const emptyEl = document.getElementById("savedCompetitionsEmpty");
+    if (!listEl || !emptyEl) {
+        return;
+    }
+
+    if (!savedCompetitions.length) {
+        emptyEl.textContent = "You haven't saved any competitions yet.";
+        listEl.innerHTML = "";
+        return;
+    }
+
+    emptyEl.textContent = "";
+    listEl.innerHTML = savedCompetitions.map((competition) => `
+        <li class="savedcompetitionitem">
+            <div class="savedcompetitioninfo">
+                <a class="savedcompetitiontitle" href="/competitions/${competition.id}">${escapeHtml(competition.title)}</a>
+                <span class="savedcompetitiondates">${escapeHtml(competition.start_date)} - ${escapeHtml(competition.end_date)}</span>
+            </div>
+            <button type="button" class="savedcompetitionremove" data-competition-id="${competition.id}">Remove</button>
+        </li>
+    `).join("");
+
+    listEl.querySelectorAll(".savedcompetitionremove").forEach((button) => {
+        button.addEventListener("click", async () => {
+            button.disabled = true;
+            try {
+                const response = await fetch(`/api/competitions/${encodeURIComponent(button.dataset.competitionId)}/save`, {
+                    method: "DELETE"
+                });
+                if (response.ok) {
+                    loadSavedCompetitions();
+                } else {
+                    button.disabled = false;
+                }
+            } catch (error) {
+                console.error("Failed to remove saved competition:", error);
+                button.disabled = false;
+            }
+        });
+    });
+}
+
 function getNextMonth() {
     currentMonth++;
     if (currentMonth > 12) {
@@ -84,6 +155,7 @@ document.addEventListener("DOMContentLoaded", () => {
     
     if (prevButton) prevButton.addEventListener("click", getPreviousMonth);
     if (nextButton) nextButton.addEventListener("click", getNextMonth);
-    
+
     calLoad();
+    loadSavedCompetitions();
 });

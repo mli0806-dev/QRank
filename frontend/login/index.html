@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>QRank - Login</title>
+    <link rel="icon" type="image/png" href="/images/favicon.png?v=2">
     <link rel="stylesheet" href="/styles.css">
     <link href="https://fonts.cdnfonts.com/css/d-din" rel="stylesheet">
     <script src="https://accounts.google.com/gsi/client" async defer></script>
@@ -11,7 +12,7 @@
 <body>
     <nav class="headerbox">
         <div class="left">
-            <a href="/" class="sitetitle">QRank - Login</a>
+            <a href="/" class="sitetitle"><img src="/images/logo.png?v=3" alt="QRank" class="sitetitlelogo"></a>
             <ul class="tablist">
                 <li><a class="tabitems" href="/topics/">Topics</a></li>
                 <li><a class="tabitems" href="/problems/">Problem Sets</a></li>
@@ -35,9 +36,11 @@
                 <input class="inputs" type="email" id="login-email" required placeholder="tung@sahur.com">
                 <label for="login-password">Password:</label>
                 <input class="inputs" type="password" id="login-password" required placeholder="67676767">
-                <button type="submit" class="authsubmit">Login</button>
+                <div class="authactions">
+                    <button type="submit" class="authsubmit">Login</button>
+                    <button id="openLoginResetButton" class="resetlink" type="button">Forgot password?</button>
+                </div>
             </form>
-            <button id="openLoginResetButton" class="resetbutton" type="button">Forgot password?</button>
             <div id="loginResetPanel" class="resetpanel hidden">
                 <p class="topicdetailtext">Enter your username or email and we'll send you a verification code.</p>
                 <input class="inputs resetinput" type="text" id="login-reset-identifier" placeholder="Username or email">
@@ -51,7 +54,7 @@
                     <button class="authsubmit" type="submit">Update Password</button>
                 </form>
             </div>
-            <div class="authdivider">or continue with Google</div>
+            <div class="authdivider">Continue with Google</div>
             <div id="google-login-error" class="autherrorhidden"></div>
             <div id="google-login-button" class="googlesigninbutton"></div>
         </div>
@@ -71,7 +74,7 @@
                 </label>
                 <button type="submit" class="authsubmit">Register</button>
             </form>
-            <div class="authdivider">or continue with Google</div>
+            <div class="authdivider">Continue with Google</div>
             <div id="google-register-error" class="autherrorhidden"></div>
             <p id="google-register-consent" class="authcheckboxnote">Check the box above to continue with Google.</p>
             <div id="google-register-button" class="googlesigninbutton googledisabled"></div>

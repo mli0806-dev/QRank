@@ -154,8 +154,6 @@ function escapeHtml(value) {
         .replace(/'/g, "&#39;");
 }
 
-// Every <a> DOMPurify keeps gets forced to open safely in a new tab, same as
-// the old hand-rolled version did for its (much narrower) link support.
 let markdownLinkHookInstalled = false;
 function ensureMarkdownLinkHook() {
     if (markdownLinkHookInstalled || typeof DOMPurify === 'undefined') {
@@ -427,8 +425,8 @@ function initTopicNetworkMap(topics = []) {
         return measureContext.measureText(label).width;
     }
 
-    const NODE_HALF_HEIGHT = 23; // matches .network-node's min-height: 46px
-    const NODE_GAP = 40; // minimum clearance between any two node edges, anywhere on the map
+    const NODE_HALF_HEIGHT = 23;
+    const NODE_GAP = 40;
     const SUBTOPIC_CONE_HALF_ANGLE = Math.PI / 3; 
     function clampAngleToCone(angle, centerAngle, halfAngle) {
         const diff = Math.atan2(Math.sin(angle - centerAngle), Math.cos(angle - centerAngle));
@@ -446,24 +444,13 @@ function initTopicNetworkMap(topics = []) {
 
     const topicLabels = topics.map((topic) => topic.topic + (topic.subtopics?.length ? ` (${topic.subtopics.length})` : ''));
 
-    // The circle has to be wide enough that adjacent topic labels don't
-    // collide with each other -- chord length between two evenly-spaced
-    // points on a circle of radius R is 2R*sin(angleStep/2), so solve for
-    // the R that gives the widest pair of labels enough room. Floors at 320
-    // (today's fixed value) so a handful of short topic names still gets
-    // the same spacious layout as before.
     const maxTopicHalfWidth = Math.max(70, ...topicLabels.map((label) => nodeHalfWidth(label, 32)));
     const angleStep = (Math.PI * 2) / totalTopics;
-    // With a single topic there's no adjacent node to avoid colliding with --
-    // sin(angleStep/2) is sin(pi), effectively zero, which would otherwise
-    // divide out to a near-infinite radius and place the node off-screen.
     const requiredRadius = totalTopics > 1
         ? (maxTopicHalfWidth * 2 + NODE_GAP) / (2 * Math.sin(angleStep / 2))
         : 0;
     const outerRadius = Math.max(320, requiredRadius);
 
-    // Light mode sits on a white background, so the same 80% lightness used in dark mode
-    // (readable against near-black) would wash out to near-invisible -- drop the value in light mode.
     function getTopicLightness() {
         return document.body.classList.contains('dark') ? 80 : 40;
     }
@@ -495,7 +482,6 @@ function initTopicNetworkMap(topics = []) {
     }
 
     const selectedTopicIndexes = new Set();
-    // Keyed "topicIndex-subtopicIndex" -- a subtopic expanded to show its units.
     const selectedSubtopicKeys = new Set();
 
     const handleMapClick = (event) => {
@@ -534,8 +520,6 @@ function initTopicNetworkMap(topics = []) {
                 renderMap();
             }
         } else if (type === "unit") {
-            // Units are the deepest tier -- nothing further to expand, so left-click
-            // navigates too instead of doing nothing.
             navigateToUnitNode(node);
         }
     };
@@ -549,7 +533,6 @@ function initTopicNetworkMap(topics = []) {
         }
     }
 
-    // Attach click handler to wrapper so it receives events even when pointer capture is active
     wrapper.addEventListener("click", (ev) => {
         if (hasDragged) {
             return;
@@ -587,16 +570,11 @@ function initTopicNetworkMap(topics = []) {
         }
     });
 
-    // Pack a topic's own subtopics ring by ring, same as before: each node's
-    // angular width is its real label width converted to an angle at that
-    // ring's radius, so a ring never runs out of room mid-label. Returns
-    // angle/radius instead of committing to x/y, because final placement
-    // also depends on every OTHER node currently on the map (see renderMap).
     function getSubtopicAngles(parentNode, subtopics) {
         const baseRadius = 200;
         const ringGap = 150;
         const maxRingArc = SUBTOPIC_CONE_HALF_ANGLE * 2;
-        const nodeHorizontalPadding = 36; // matches .network-node.subtopic's 18px left/right padding
+        const nodeHorizontalPadding = 36;
         const parentAngle = Math.atan2(parentNode.y - centerY, parentNode.x - centerX);
         const layout = [];
         let remaining = subtopics.slice();
@@ -650,7 +628,6 @@ function initTopicNetworkMap(topics = []) {
     const dragThreshold = 8;
 
     function updateTransform() {
-        // Apply pan/zoom transform to the map element
         if (!map) return;
         map.style.transformOrigin = '0 0';
         map.style.transform = `translate(${originX}px, ${originY}px) scale(${scale})`;
@@ -659,9 +636,6 @@ function initTopicNetworkMap(topics = []) {
     const MIN_SCALE = 0.25;
     const MAX_SCALE = 3;
 
-    // Centers the view on the topic ring and zooms out just enough for it to
-    // fit the wrapper -- without this, a narrow phone/tablet viewport only
-    // ever shows the top-left sliver of the fixed 1400x900 map canvas.
     function fitToView() {
         const rect = wrapper.getBoundingClientRect();
 
@@ -679,13 +653,6 @@ function initTopicNetworkMap(topics = []) {
         originY = rect.height / 2 - centerY * scale;
     }
 
-    // Angular offsets tried at each radius ring before pushing further out --
-    // a pure "push straight outward along the original angle" search can
-    // still walk a node into something else that happens to sit at a
-    // different angle but similar radius (this actually happened under a
-    // synthetic 40-subtopics-on-one-topic stress test). Trying a small fan
-    // of nearby angles at each radius first finds a genuinely free spot far
-    // more often, and keeps most nodes close to their intended position.
     const COLLISION_SEARCH_ANGLE_OFFSETS = [0, 0.15, -0.15, 0.3, -0.3, 0.5, -0.5, 0.8, -0.8, 1.0, -1.0];
 
     function resolveSubtopicPosition(parentNode, initialAngle, initialRadius, halfW, halfH, obstacles, parentAngle) {
@@ -694,8 +661,6 @@ function initTopicNetworkMap(topics = []) {
 
         while (radius <= maxRadius) {
             for (const offset of COLLISION_SEARCH_ANGLE_OFFSETS) {
-                // Clamped so the collision search can push a crowded node further OUT,
-                // but never wider than the 60-degree cone around the parent's radial.
                 const angle = clampAngleToCone(initialAngle + offset, parentAngle, SUBTOPIC_CONE_HALF_ANGLE);
                 const x = parentNode.x + Math.cos(angle) * radius;
                 const y = parentNode.y + Math.sin(angle) * radius;
@@ -706,9 +671,6 @@ function initTopicNetworkMap(topics = []) {
             radius += 20;
         }
 
-        // Every attempt collided -- extremely unlikely, but rather than loop
-        // forever, place it at the final radius on its original angle and
-        // accept the overlap.
         const fallbackAngle = clampAngleToCone(initialAngle, parentAngle, SUBTOPIC_CONE_HALF_ANGLE);
         return {
             x: parentNode.x + Math.cos(fallbackAngle) * radius,
@@ -717,7 +679,6 @@ function initTopicNetworkMap(topics = []) {
     }
 
     function renderMap() {
-        // Each line between two topics blends their two distinct colors via an SVG gradient -- gradientUnits="userSpaceOnUse" plus the line's own endpoint coordinates makes the gradient run exactly along the line itself rather than a default box-relative direction.
         const topicLineData = nodes.flatMap((start, i) => {
             return nodes.slice(i + 1).map((end, offset) => {
                 const j = i + 1 + offset;
@@ -731,7 +692,6 @@ function initTopicNetworkMap(topics = []) {
         const topicGradients = topicLineData.map((item) => item.gradient).join("");
         const topicLines = topicLineData.map((item) => item.line).join("");
 
-        // Every topic node is a permanent obstacle regardless of expand state, so a subtopic ring can never land on top of a neighboring topic.
         const obstacles = nodes.map((node) => ({
             x: node.x,
             y: node.y,
@@ -740,9 +700,6 @@ function initTopicNetworkMap(topics = []) {
         }));
 
         const expandedSubtopicData = [];
-        // Resolved position of every currently-rendered subtopic, keyed the same
-        // way as selectedSubtopicKeys, so the unit layer below can use a subtopic
-        // as its own "parentNode" for the exact same expansion algorithm.
         const subtopicNodesByKey = new Map();
 
         Array.from(selectedTopicIndexes).forEach((topicIndex) => {
@@ -773,15 +730,11 @@ function initTopicNetworkMap(topics = []) {
             });
         });
 
-        // Units around a subtopic, using the exact same cone-packing/collision-avoidance
-        // algorithm as subtopics around a topic -- the subtopic's own resolved position
-        // just becomes the "parentNode" for another getSubtopicAngles/resolveSubtopicPosition pass.
         const expandedUnitData = [];
 
         Array.from(selectedSubtopicKeys).forEach((key) => {
             const subtopicNode = subtopicNodesByKey.get(key);
             if (!subtopicNode) {
-                // Parent subtopic isn't currently on the map (its topic got collapsed) -- nothing to expand.
                 return;
             }
 
@@ -822,9 +775,6 @@ function initTopicNetworkMap(topics = []) {
         `;
     }
 
-    // Tracks every pointer currently down on the wrapper (by pointerId) so a
-    // second touch can be detected -- that's what turns a one-finger pan into
-    // a two-finger pinch-zoom on phones/tablets, which have no wheel events.
     const activePointers = new Map();
     let pinchStartDistance = null;
 
@@ -855,14 +805,12 @@ function initTopicNetworkMap(topics = []) {
         try {
             wrapper.setPointerCapture(event.pointerId);
         } catch (error) {
-            // A second touch during a pinch can be rejected by some browsers --
-            // panning/pinch tracking below doesn't depend on capture succeeding.
         }
         activePointers.set(event.pointerId, { x: event.clientX, y: event.clientY });
 
         if (activePointers.size >= 2) {
             isDragging = false;
-            hasDragged = true; // suppress the stray click a pinch's pointerup can otherwise fire
+            hasDragged = true;
             pinchStartDistance = null;
             return;
         }
@@ -922,7 +870,6 @@ function initTopicNetworkMap(topics = []) {
         pinchStartDistance = null;
 
         if (activePointers.size === 1) {
-            // One finger remains down after a pinch -- hand off to a plain pan from here.
             const [remaining] = Array.from(activePointers.values());
             isDragging = true;
             dragStartX = remaining.x;
@@ -1454,6 +1401,13 @@ async function renderProfilePage() {
     }
 }
 
+function updateSiteLogo(isDark) {
+    const src = isDark ? "/images/dark-logo.png?v=3" : "/images/logo.png?v=3";
+    document.querySelectorAll(".sitetitlelogo").forEach((img) => {
+        img.src = src;
+    });
+}
+
 const toggle = document.getElementById("themetoggler");
 
 if (toggle) {
@@ -1468,6 +1422,7 @@ if (toggle) {
             toggle.textContent = "Dark Mode";
         }
 
+        updateSiteLogo(isDark);
         document.dispatchEvent(new CustomEvent("themechange", { detail: { dark: isDark } }));
     });
 }
@@ -1481,6 +1436,7 @@ if (
     (!localStorage.getItem("theme") && prefersDarkScheme)
 ) {
     document.body.classList.add("dark");
+    updateSiteLogo(true);
     const toggle = document.getElementById("themetoggler");
     if (toggle) {
         toggle.textContent = "Light Mode";
@@ -1497,9 +1453,6 @@ async function pingServer() {
     }
 }
 
-// Generic per-topic background: any topic slug tries to load
-// /images/topics/{slug}.webp. Topics without a matching image just render
-// with no background -- a failed background-image request degrades silently.
 function applyTopicBackground(topicSlug) {
     const main = document.querySelector("main");
     if (!main) {
@@ -1762,10 +1715,6 @@ async function submitProblemSetSuggestion(event) {
         }
 
         if (editingSuggestionId) {
-            // Only admins can ever reach this edit flow in the first place, so
-            // routing their own edit through the manual review queue is a
-            // pointless extra step -- approve it immediately and go straight
-            // back to the live page instead.
             statusElement.textContent = "Publishing changes...";
 
             const approveResponse = await fetch(`/api/admin/problem-set-suggestions/${encodeURIComponent(editingSuggestionId)}`, {
@@ -1792,11 +1741,6 @@ async function submitProblemSetSuggestion(event) {
     }
 }
 
-// Handles both the normal "suggest something new" flow and, when the URL has
-// ?editSuggestion=<id>, editing an already-live problem set through the same
-// form -- that query param is set by the admin-only Edit button on a problem
-// set's own page (see initProblemSetEditButton), which creates a pending
-// suggestion pre-filled from the live content and sends the admin here.
 async function initContributePage() {
     const currentUser = await getCurrentUser();
     const subtext = document.getElementById("contribute-page-subtext");
@@ -2006,9 +1950,6 @@ function updateProblemItemTypeFields(item) {
         correctRadios.forEach(radio => {
             radio.required = false;
         });
-        // These sit inside choiceList, which just got hidden -- a required-but-empty
-        // field the browser can't focus to show its validation bubble blocks submit
-        // entirely with a silent, hard-to-diagnose "not focusable" console error.
         choiceInputs.forEach(input => {
             input.required = false;
         });
@@ -2112,9 +2053,6 @@ function addProblemItem() {
     return template;
 }
 
-// Fills in a freshly-created problem item (from addProblemItem) with existing
-// problem data -- used when editing an already-live problem set through the
-// suggestion pipeline, to pre-populate the form instead of starting blank.
 function populateProblemItem(template, problem) {
     if (!template || !problem) {
         return;

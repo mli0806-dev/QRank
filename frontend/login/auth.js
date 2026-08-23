@@ -228,8 +228,6 @@ document.addEventListener("DOMContentLoaded", () => {
         });
     }
 
-    // Whatever the account was identified by at request time has to be sent again
-    // at verify time too -- the server scopes the code lookup to one account.
     let loginResetIdentifierValue = "";
 
     if (loginSendResetButton && loginResetStatus && loginResetVerifyForm && loginResetIdentifier) {

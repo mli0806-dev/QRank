@@ -34,12 +34,15 @@ async function loadCompetitionDetail() {
         container.innerHTML = `
             <a class="topicdetailback" href="/competitions/">Back to Competitions</a>
             <h1 class="topicdetailtitle">${escapeHtml(competition.title)}</h1>
+            <button type="button" id="save-competition-button" class="topicdetailback hidden">Save this competition</button>
             <div class="topicdetailpanel">
                 <p class="topicdetailtext"><span>Category:</span> ${escapeHtml(competition.category || "Uncategorized")}</p>
                 <p class="topicdetailtext"><span>Dates:</span> ${escapeHtml(competition.start_date)} to ${escapeHtml(competition.end_date)}</p>
                 <p class="topicdetailtext"><span>Time:</span> ${escapeHtml(competition.start_time)} - ${escapeHtml(competition.end_time)}</p>
             </div>
         `;
+
+        initSaveCompetitionButton(competitionId);
     } catch (error) {
         console.error("Failed to load competition:", error);
         container.innerHTML = `
@@ -48,6 +51,58 @@ async function loadCompetitionDetail() {
             <p class="topicdetailtext">Unable to load this competition right now.</p>
         `;
     }
+}
+
+async function initSaveCompetitionButton(competitionId) {
+    const button = document.getElementById("save-competition-button");
+    if (!button) {
+        return;
+    }
+
+    const currentUser = await getCurrentUser();
+    if (!currentUser) {
+        return;
+    }
+
+    let saved = false;
+    try {
+        const response = await fetch("/api/saved-competitions");
+        if (response.ok) {
+            const savedCompetitions = await response.json();
+            saved = savedCompetitions.some((competition) => String(competition.id) === String(competitionId));
+        }
+    } catch (error) {
+        console.error("Failed to check saved competitions:", error);
+    }
+
+    const render = () => {
+        button.textContent = saved ? "Unsave this competition" : "Save this competition";
+    };
+    render();
+    button.classList.remove("hidden");
+
+    button.addEventListener("click", async () => {
+        button.disabled = true;
+
+        try {
+            const response = await fetch(`/api/competitions/${encodeURIComponent(competitionId)}/save`, {
+                method: saved ? "DELETE" : "POST"
+            });
+
+            if (!response.ok) {
+                const data = await response.json().catch(() => ({}));
+                console.error("Failed to toggle saved competition:", data.message);
+                return;
+            }
+
+            saved = !saved;
+            render();
+        } catch (error) {
+            console.error("Failed to toggle saved competition:", error);
+        } finally {
+            button.disabled = false;
+        }
+    });
 }
 
 document.addEventListener("DOMContentLoaded", loadCompetitionDetail);

@@ -4,13 +4,14 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>QRank</title>
+    <link rel="icon" type="image/png" href="/images/favicon.png?v=2">
     <link rel="stylesheet" href="/styles.css">
     <link href="https://fonts.cdnfonts.com/css/d-din" rel="stylesheet">
 </head>
 <body>
     <nav class="headerbox">
         <div class="left">
-            <a href="/" class="sitetitle">QRank - Competition Calendar </a>
+            <a href="/" class="sitetitle"><img src="/images/logo.png?v=3" alt="QRank" class="sitetitlelogo"></a>
             <ul class="tablist">
                 <li><a class="tabitems" href="/topics/">Topics</a></li>
                 <li><a class="tabitems" href="/problems/">Problem Sets</a></li>
@@ -27,22 +28,29 @@
     </nav>
     <main>
         <h1 class="welcometext">Competitions</h1>
-        <div class="calendarbox">
-            <div class="calendarheader" id="calendarheader">
-                <button id="prevmonth" class="calendarbutton" aria-label="Previous month">&lt;</button>
-                <button id="nextmonth" class="calendarbutton" aria-label="Next month">&gt;</button>
-                <div id="monthyear" class="monthyear"></div>
+        <div class="calendarlayout">
+            <div class="calendarbox">
+                <div class="calendarheader" id="calendarheader">
+                    <button id="prevmonth" class="calendarbutton" aria-label="Previous month">&lt;</button>
+                    <button id="nextmonth" class="calendarbutton" aria-label="Next month">&gt;</button>
+                    <div id="monthyear" class="monthyear"></div>
+                </div>
+                <div class="calendarlabels">
+                    <div class="calendarlabel">Sun</div>
+                    <div class="calendarlabel">Mon</div>
+                    <div class="calendarlabel">Tue</div>
+                    <div class="calendarlabel">Wed</div>
+                    <div class="calendarlabel">Thu</div>
+                    <div class="calendarlabel">Fri</div>
+                    <div class="calendarlabel">Sat</div>
+                </div>
+                <div id="calendarcontainer"></div>
             </div>
-            <div class="calendarlabels">
-                <div class="calendarlabel">Sun</div>
-                <div class="calendarlabel">Mon</div>
-                <div class="calendarlabel">Tue</div>
-                <div class="calendarlabel">Wed</div>
-                <div class="calendarlabel">Thu</div>
-                <div class="calendarlabel">Fri</div>
-                <div class="calendarlabel">Sat</div>
-            </div>
-            <div id="calendarcontainer"></div>
+            <aside class="savedcompetitionspanel" id="savedCompetitionsPanel">
+                <h2 class="savedcompetitionsheader">Saved Competitions</h2>
+                <p class="savedcompetitionsempty" id="savedCompetitionsEmpty">Loading your saved competitions...</p>
+                <ul class="savedcompetitionslist" id="savedCompetitionsList"></ul>
+            </aside>
         </div>
     </main>
     <footer class="sitefooter">© 2026 QRank. All rights reserved. · <a class="footerlink" href="/tos/">Terms of Service</a> · <a class="footerlink" href="/privacy/">Privacy Policy</a></footer>
