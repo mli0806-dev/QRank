@@ -238,6 +238,10 @@ main.topicbg {
   opacity: 0.9;
 }
 
+#edit-problem-set-button {
+  margin-bottom: 0;
+}
+
 .topicdetailtitle {
   margin-top: 0;
   margin-bottom: 20px;
@@ -264,7 +268,6 @@ main.topicbg {
   background-color: var(--card);
   color: var(--text);
   text-decoration: none;
-  min-height: 120px;
   border: 1px solid var(--border);
   opacity: 0.9;
 }
@@ -1197,4 +1200,177 @@ main.topicbg {
 .aboutustext {
   text-decoration: none;
   margin: 0;
+}
+
+/* ---------- Mobile navigation ---------- */
+.navtoggle {
+  display: none;
+  background: none;
+  border: none;
+  color: var(--text);
+  font-size: 22px;
+  line-height: 1;
+  cursor: pointer;
+  padding: 6px 8px;
+  font-family: inherit;
+}
+
+/* ---------- Tablet layout ---------- */
+@media (max-width: 900px) {
+  .headerbox {
+    padding: 16px 20px;
+  }
+
+  .left {
+    flex: 1;
+    min-width: 0;
+    gap: 12px;
+  }
+
+  .sitetitle {
+    font-size: 16px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 46vw;
+  }
+
+  .navtoggle {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .tablist {
+    display: none;
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0;
+    margin: 0;
+    background-color: var(--card);
+    border-bottom: 1px solid var(--border);
+    z-index: 999;
+  }
+
+  .tablist.open {
+    display: flex;
+  }
+
+  .tablist li {
+    width: 100%;
+  }
+
+  .tabitems, .profilemenulink {
+    width: 100%;
+    box-sizing: border-box;
+    padding: 14px 20px;
+    border-top: 1px solid var(--border);
+    font-size: 16px;
+  }
+
+  .right {
+    gap: 14px;
+    margin-left: 12px;
+  }
+
+  .themebutton, .login {
+    font-size: 13px;
+  }
+
+  .auth {
+    flex-wrap: wrap;
+    margin-top: 24px;
+  }
+
+  .authcontainer {
+    width: 100%;
+    max-width: 360px;
+  }
+
+  .topicdetail,
+  .profilecontainer {
+    padding: 28px 20px;
+  }
+
+  .calendarbox {
+    margin: 24px 16px;
+    padding: 14px;
+  }
+
+  .calendarheader {
+    padding-left: 4px;
+    padding-right: 4px;
+    gap: 10px;
+  }
+
+  .calendarlabels {
+    padding-left: 4px;
+    padding-right: 4px;
+    gap: 4px;
+    font-size: 12px;
+  }
+
+  #calendarcontainer {
+    gap: 6px;
+    padding: 10px 4px;
+  }
+
+  .network-topic-panel {
+    width: calc(100% - 40px);
+  }
+
+  .topicnetworkpage,
+  .network-map-wrapper {
+    height: calc(100vh - 58px);
+    min-height: calc(100vh - 58px);
+  }
+
+  .choice-row {
+    flex-wrap: wrap;
+  }
+}
+
+/* ---------- Phone layout ---------- */
+@media (max-width: 600px) {
+  .welcometext {
+    font-size: 28px;
+    margin-top: 32px;
+  }
+
+  .body {
+    padding: 0 4px;
+  }
+
+  .topicdetailtitle {
+    font-size: 24px;
+  }
+
+  .titleboxes {
+    width: 100%;
+    max-width: 280px;
+  }
+
+  .sitetitle {
+    max-width: 40vw;
+    font-size: 14px;
+  }
+
+  .network-map-controls {
+    left: 12px;
+    top: 12px;
+    gap: 10px;
+  }
+
+  .network-exit-button, .network-reset-button, .network-collapse-button {
+    padding: 8px 12px;
+    font-size: 13px;
+  }
+
+  .rankingsearchcontrols {
+    flex-wrap: wrap;
+  }
 }

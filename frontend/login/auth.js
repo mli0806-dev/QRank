@@ -213,4 +213,97 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     initializeGoogleLogin();
+
+    const openLoginResetButton = document.getElementById("openLoginResetButton");
+    const loginResetPanel = document.getElementById("loginResetPanel");
+    const loginSendResetButton = document.getElementById("loginSendResetButton");
+    const loginResetStatus = document.getElementById("loginResetStatus");
+    const loginResetVerifyForm = document.getElementById("loginResetVerifyForm");
+    const loginResetIdentifier = document.getElementById("login-reset-identifier");
+
+    if (openLoginResetButton && loginResetPanel) {
+        openLoginResetButton.addEventListener("click", () => {
+            loginResetPanel.classList.remove("hidden");
+            openLoginResetButton.classList.add("hidden");
+        });
+    }
+
+    // Whatever the account was identified by at request time has to be sent again
+    // at verify time too -- the server scopes the code lookup to one account.
+    let loginResetIdentifierValue = "";
+
+    if (loginSendResetButton && loginResetStatus && loginResetVerifyForm && loginResetIdentifier) {
+        loginSendResetButton.addEventListener("click", async () => {
+            const identifier = loginResetIdentifier.value.trim();
+
+            if (!identifier) {
+                loginResetStatus.textContent = "Enter your username or email first.";
+                return;
+            }
+
+            loginResetStatus.textContent = "Sending code...";
+
+            const isEmail = identifier.includes("@");
+
+            try {
+                const response = await fetch("/api/password-reset/request", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify(isEmail ? { email: identifier } : { username: identifier })
+                });
+
+                const data = await response.json();
+                loginResetIdentifierValue = identifier;
+
+                if (data.verificationCode) {
+                    loginResetStatus.textContent = `${data.message || "Verification code generated locally."} Code: ${data.verificationCode}`;
+                } else {
+                    loginResetStatus.textContent = data.message || "Verification code sent.";
+                }
+
+                loginResetVerifyForm.classList.remove("hidden");
+                loginSendResetButton.classList.add("hidden");
+                loginResetIdentifier.disabled = true;
+            } catch (error) {
+                console.error("Failed to request password reset:", error);
+                loginResetStatus.textContent = "Unable to send verification code.";
+            }
+        });
+    }
+
+    if (loginResetVerifyForm && loginResetStatus) {
+        loginResetVerifyForm.addEventListener("submit", async (event) => {
+            event.preventDefault();
+
+            const code = document.getElementById("login-reset-code").value;
+            const newPassword = document.getElementById("login-reset-new-password").value;
+            const isEmail = loginResetIdentifierValue.includes("@");
+            loginResetStatus.textContent = "Updating password...";
+
+            try {
+                const response = await fetch("/api/password-reset/verify", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                        ...(isEmail ? { email: loginResetIdentifierValue } : { username: loginResetIdentifierValue }),
+                        code,
+                        newPassword
+                    })
+                });
+
+                const data = await response.json();
+
+                if (!response.ok) {
+                    loginResetStatus.textContent = data.message || "Password update failed.";
+                    return;
+                }
+
+                loginResetStatus.textContent = "Password updated. You can log in now.";
+                loginResetVerifyForm.classList.add("hidden");
+            } catch (error) {
+                console.error("Failed to update password:", error);
+                loginResetStatus.textContent = "Password update failed.";
+            }
+        });
+    }
 });

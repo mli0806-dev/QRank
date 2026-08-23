@@ -5,6 +5,51 @@
     document.head.appendChild(script);
 })();
 
+function initMobileNav() {
+    const headerLeft = document.querySelector(".headerbox .left");
+    const tablist = document.querySelector(".headerbox .tablist");
+    if (!headerLeft || !tablist || headerLeft.querySelector(".navtoggle")) {
+        return;
+    }
+
+    const toggle = document.createElement("button");
+    toggle.type = "button";
+    toggle.className = "navtoggle";
+    toggle.setAttribute("aria-label", "Toggle navigation menu");
+    toggle.setAttribute("aria-expanded", "false");
+    toggle.textContent = "☰";
+    headerLeft.insertBefore(toggle, tablist);
+
+    const closeMenu = () => {
+        tablist.classList.remove("open");
+        toggle.setAttribute("aria-expanded", "false");
+        toggle.textContent = "☰";
+    };
+
+    toggle.addEventListener("click", () => {
+        const isOpen = tablist.classList.toggle("open");
+        toggle.setAttribute("aria-expanded", String(isOpen));
+        toggle.textContent = isOpen ? "✕" : "☰";
+    });
+
+    tablist.addEventListener("click", (event) => {
+        if (event.target instanceof Element && event.target.closest("a")) {
+            closeMenu();
+        }
+    });
+
+    document.addEventListener("click", (event) => {
+        if (!tablist.classList.contains("open")) {
+            return;
+        }
+        const target = event.target;
+        if (target instanceof Element && (tablist.contains(target) || toggle.contains(target))) {
+            return;
+        }
+        closeMenu();
+    });
+}
+
 function toggleDropdown(button) {
     const dropdown = button.parentElement.nextElementSibling
 
@@ -611,6 +656,29 @@ function initTopicNetworkMap(topics = []) {
         map.style.transform = `translate(${originX}px, ${originY}px) scale(${scale})`;
     }
 
+    const MIN_SCALE = 0.25;
+    const MAX_SCALE = 3;
+
+    // Centers the view on the topic ring and zooms out just enough for it to
+    // fit the wrapper -- without this, a narrow phone/tablet viewport only
+    // ever shows the top-left sliver of the fixed 1400x900 map canvas.
+    function fitToView() {
+        const rect = wrapper.getBoundingClientRect();
+
+        if (!rect.width || !rect.height) {
+            scale = 1;
+            originX = 0;
+            originY = 0;
+            return;
+        }
+
+        const contentDiameter = (outerRadius + 120) * 2;
+        const fitScale = Math.min(rect.width, rect.height) / contentDiameter;
+        scale = Math.min(1, Math.max(MIN_SCALE, fitScale));
+        originX = rect.width / 2 - centerX * scale;
+        originY = rect.height / 2 - centerY * scale;
+    }
+
     // Angular offsets tried at each radius ring before pushing further out --
     // a pure "push straight outward along the original angle" search can
     // still walk a node into something else that happens to sit at a
@@ -754,6 +822,21 @@ function initTopicNetworkMap(topics = []) {
         `;
     }
 
+    // Tracks every pointer currently down on the wrapper (by pointerId) so a
+    // second touch can be detected -- that's what turns a one-finger pan into
+    // a two-finger pinch-zoom on phones/tablets, which have no wheel events.
+    const activePointers = new Map();
+    let pinchStartDistance = null;
+
+    function getPinchMetrics() {
+        const [a, b] = Array.from(activePointers.values());
+        return {
+            distance: Math.hypot(b.x - a.x, b.y - a.y),
+            midX: (a.x + b.x) / 2,
+            midY: (a.y + b.y) / 2
+        };
+    }
+
     wrapper.addEventListener("pointerdown", (event) => {
         if (event.button !== 0) {
             return;
@@ -769,15 +852,55 @@ function initTopicNetworkMap(topics = []) {
         }
 
         event.preventDefault();
+        try {
+            wrapper.setPointerCapture(event.pointerId);
+        } catch (error) {
+            // A second touch during a pinch can be rejected by some browsers --
+            // panning/pinch tracking below doesn't depend on capture succeeding.
+        }
+        activePointers.set(event.pointerId, { x: event.clientX, y: event.clientY });
+
+        if (activePointers.size >= 2) {
+            isDragging = false;
+            hasDragged = true; // suppress the stray click a pinch's pointerup can otherwise fire
+            pinchStartDistance = null;
+            return;
+        }
+
         isDragging = true;
         dragStartX = event.clientX;
         dragStartY = event.clientY;
         initialX = originX;
         initialY = originY;
-        wrapper.setPointerCapture(event.pointerId);
     });
 
     wrapper.addEventListener("pointermove", (event) => {
+        if (!activePointers.has(event.pointerId)) {
+            return;
+        }
+
+        activePointers.set(event.pointerId, { x: event.clientX, y: event.clientY });
+
+        if (activePointers.size >= 2) {
+            event.preventDefault();
+            const rect = wrapper.getBoundingClientRect();
+            const { distance, midX, midY } = getPinchMetrics();
+            const anchorX = midX - rect.left;
+            const anchorY = midY - rect.top;
+
+            if (pinchStartDistance) {
+                const beforeX = (anchorX - originX) / scale;
+                const beforeY = (anchorY - originY) / scale;
+                scale = Math.min(MAX_SCALE, Math.max(MIN_SCALE, scale * (distance / pinchStartDistance)));
+                originX = anchorX - beforeX * scale;
+                originY = anchorY - beforeY * scale;
+                updateTransform();
+            }
+
+            pinchStartDistance = distance;
+            return;
+        }
+
         if (!isDragging) {
             return;
         }
@@ -794,16 +917,30 @@ function initTopicNetworkMap(topics = []) {
         updateTransform();
     });
 
-    const endDrag = () => {
+    const releasePointer = (event) => {
+        activePointers.delete(event.pointerId);
+        pinchStartDistance = null;
+
+        if (activePointers.size === 1) {
+            // One finger remains down after a pinch -- hand off to a plain pan from here.
+            const [remaining] = Array.from(activePointers.values());
+            isDragging = true;
+            dragStartX = remaining.x;
+            dragStartY = remaining.y;
+            initialX = originX;
+            initialY = originY;
+            return;
+        }
+
         isDragging = false;
         setTimeout(() => {
             hasDragged = false;
         }, 0);
     };
 
-    wrapper.addEventListener("pointerup", endDrag);
-    wrapper.addEventListener("pointerleave", endDrag);
-    wrapper.addEventListener("pointercancel", endDrag);
+    wrapper.addEventListener("pointerup", releasePointer);
+    wrapper.addEventListener("pointerleave", releasePointer);
+    wrapper.addEventListener("pointercancel", releasePointer);
 
     wrapper.addEventListener("selectstart", (event) => {
         if (isDragging) {
@@ -812,9 +949,7 @@ function initTopicNetworkMap(topics = []) {
     });
 
     resetButton?.addEventListener("click", () => {
-        scale = 1;
-        originX = 0;
-        originY = 0;
+        fitToView();
         updateTransform();
     });
 
@@ -833,7 +968,7 @@ function initTopicNetworkMap(topics = []) {
         const beforeY = (pointerY - originY) / scale;
 
         const zoomFactor = event.deltaY > 0 ? 1 / 1.08 : 1.08;
-        const nextScale = Math.min(3, Math.max(0.5, scale * zoomFactor));
+        const nextScale = Math.min(MAX_SCALE, Math.max(MIN_SCALE, scale * zoomFactor));
         const scaleRatio = nextScale / scale;
         scale = nextScale;
 
@@ -842,6 +977,7 @@ function initTopicNetworkMap(topics = []) {
         updateTransform();
     }, { passive: false });
 
+    fitToView();
     updateTransform();
 }
 
@@ -1176,7 +1312,7 @@ async function renderProfilePage() {
                                 <label for="reset-code">Verification Code</label>
                                 <input class="inputs resetinput" type="text" id="reset-code" maxlength="6" inputmode="numeric" autocomplete="one-time-code" placeholder="Enter 6-digit code">
                                 <label for="reset-new-password">New Password</label>
-                                <input class="inputs resetinput" type="password" id="reset-new-password" autocomplete="new-password" placeholder="Enter your new password">
+                                <input class="inputs resetinput" type="password" id="reset-new-password" autocomplete="new-password" placeholder="Enter your new password" minlength="8" required>
                                 <button class="authsubmit" type="submit">Update Password</button>
                             </form>
                         </div>
@@ -1276,6 +1412,7 @@ async function renderProfilePage() {
                         method: "POST",
                         headers: { "Content-Type": "application/json" },
                         body: JSON.stringify({
+                            username: route.usernameSlug,
                             code,
                             newPassword
                         })
@@ -1661,6 +1798,20 @@ async function submitProblemSetSuggestion(event) {
 // set's own page (see initProblemSetEditButton), which creates a pending
 // suggestion pre-filled from the live content and sends the admin here.
 async function initContributePage() {
+    const currentUser = await getCurrentUser();
+    const subtext = document.getElementById("contribute-page-subtext");
+
+    if (!currentUser) {
+        const panel = document.querySelector(".aboutuspanel");
+        if (subtext) {
+            subtext.textContent = "You need to be logged in to contribute a problem set.";
+        }
+        if (panel) {
+            panel.innerHTML = `<p class="topicdetailtext">Please <a class="footerlink" href="/login/">log in</a> to submit a problem set.</p>`;
+        }
+        return;
+    }
+
     const suggestForm = document.getElementById("suggest-problem-set-form");
     const addProblemButton = document.getElementById("add-problem-button");
 
@@ -1723,9 +1874,8 @@ async function initContributePage() {
             heading.textContent = `Editing: ${suggestion.name}`;
         }
 
-        const subtext = document.getElementById("contribute-page-subtext");
         if (subtext) {
-            subtext.textContent = "Saving will send this back to the review queue for approval.";
+            subtext.textContent = "Saving will publish these changes immediately.";
         }
 
         if (statusElement) {
@@ -2036,6 +2186,7 @@ function initUserSearch() {
 document.addEventListener("DOMContentLoaded", () => {
     checkUserStatus();
     initUserSearch();
+    initMobileNav();
 
     const profileRoute = getProfileRoute();
     const isProblemsRoute = window.location.pathname.startsWith("/problems");

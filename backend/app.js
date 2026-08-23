@@ -33,7 +33,11 @@ const mailerReady = Boolean(
     process.env.SMTP_PASS &&
     process.env.SMTP_FROM
 );
-const allowDevEmailFallback = process.env.NODE_ENV !== "production";
+// Requires an explicit opt-in on top of NODE_ENV -- a misconfigured/missing
+// NODE_ENV alone should never be able to resurrect a path that hands out
+// verification codes in an API response. This flag is only ever meant to be
+// set in a local .env, never in a real deployment's environment variables.
+const allowDevEmailFallback = process.env.NODE_ENV !== "production" && process.env.DEV_PASSWORD_RESET_FALLBACK === "true";
 const mailer = mailerReady
     ? nodemailer.createTransport({
         host: process.env.SMTP_HOST,
@@ -77,6 +81,13 @@ const publicWriteLimiter = rateLimit({
 
 function generateVerificationCode() {
     return String(crypto.randomInt(100000, 1000000));
+}
+
+const MIN_PASSWORD_LENGTH = 8;
+const RESET_REQUEST_COOLDOWN_SECONDS = 60;
+
+function isPasswordStrongEnough(password) {
+    return typeof password === "string" && password.length >= MIN_PASSWORD_LENGTH;
 }
 
 // Subtopics carry the real course codes for their curriculum (e.g. "IM1",
@@ -131,6 +142,19 @@ async function sendPasswordResetEmail(email, username, code) {
         to: email,
         subject: "QRank password reset code",
         text: `Hi ${username}, your QRank verification code is ${code}. It expires in ${resetCodeTtlMinutes} minutes.`
+    });
+}
+
+async function sendPasswordChangedNotification(email, username) {
+    if (!mailer) {
+        return;
+    }
+
+    await mailer.sendMail({
+        from: process.env.SMTP_FROM,
+        to: email,
+        subject: "Your QRank password was changed",
+        text: `Hi ${username}, your QRank account password was just changed. If this wasn't you, please reset your password again immediately.`
     });
 }
 
@@ -258,9 +282,9 @@ app.get("/api/problem-sets/count", async (req, res) => {
     }
 });
 
-app.post("/api/problem-set-suggestions", publicWriteLimiter, async (req, res) => {
+app.post("/api/problem-set-suggestions", publicWriteLimiter, auth.requireAuth, async (req, res) => {
     try {
-        const { name, description, topic, subtopic, unit, tags, problems, submitter } = req.body || {};
+        const { name, description, topic, subtopic, unit, tags, problems } = req.body || {};
 
         if (!name || !topic || !subtopic || !problems) {
             return res.status(400).json({ message: "Name, topic, subtopic, and problems are required." });
@@ -277,7 +301,9 @@ app.post("/api/problem-set-suggestions", publicWriteLimiter, async (req, res) =>
             .filter(Boolean)
             .join(',');
         const cleanProblems = String(problems).trim();
-        const cleanSubmitter = submitter ? String(submitter).trim() : null;
+        // Trusting the authenticated session's username rather than a client-supplied
+        // "submitter" field so a logged-in user can't submit a suggestion under someone else's name.
+        const cleanSubmitter = req.user.username;
 
         const [result] = await db.query(
             "INSERT INTO problem_set_suggestions (name, description, topic, subtopic, unit, tags, problems, submitter) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
@@ -933,16 +959,33 @@ app.post("/api/password-reset/request", passwordResetLimiter, async (req, res) =
                 [email]
             );
 
+        const genericResponse = { message: "If the account exists, a verification code has been sent." };
+
         if (users.length === 0) {
-            return res.json({ message: "If the account exists, a verification code has been sent." });
+            return res.json(genericResponse);
         }
 
         const user = users[0];
+
+        await deleteExpiredPasswordResetCodes();
+
+        // Per-account cooldown, independent of the passwordResetLimiter above (which
+        // is keyed by IP) -- stops one account from being email-bombed by requests
+        // spread across many source IPs. The response is identical either way, so
+        // this can't be used to tell "code sent" apart from "cooldown active", which
+        // would otherwise leak that the account exists and was recently targeted.
+        const [recentCodes] = await db.query(
+            "SELECT id FROM password_reset_codes WHERE user_id = ? AND used_at IS NULL AND created_at > (NOW() - INTERVAL ? SECOND) LIMIT 1",
+            [user.id, RESET_REQUEST_COOLDOWN_SECONDS]
+        );
+
+        if (recentCodes.length > 0) {
+            return res.json(genericResponse);
+        }
+
         const code = generateVerificationCode();
         const codeHash = await bcrypt.hash(code, 10);
         const expiresAt = new Date(Date.now() + resetCodeTtlMinutes * 60 * 1000);
-
-        await deleteExpiredPasswordResetCodes();
 
         await db.query(
             "DELETE FROM password_reset_codes WHERE user_id = ? AND used_at IS NULL",
@@ -978,55 +1021,55 @@ app.post("/api/password-reset/request", passwordResetLimiter, async (req, res) =
 
 app.post("/api/password-reset/verify", passwordResetLimiter, async (req, res) => {
     try {
-        const { code, newPassword } = req.body;
+        const { username, email, code, newPassword } = req.body;
 
-        if (!code || !newPassword) {
-            return res.status(400).json({ message: "Code and new password are required." });
+        if ((!username && !email) || !code || !newPassword) {
+            return res.status(400).json({ message: "Account, code, and new password are required." });
         }
 
-        const [tokens] = await db.query(
-            "SELECT id, user_id, code_hash FROM password_reset_codes WHERE used_at IS NULL AND expires_at > NOW() ORDER BY created_at DESC"
-        );
-
-        if (tokens.length === 0) {
-            return res.status(400).json({ message: "Verification code expired or invalid." });
+        if (!isPasswordStrongEnough(newPassword)) {
+            return res.status(400).json({ message: `Password must be at least ${MIN_PASSWORD_LENGTH} characters.` });
         }
 
+        const [users] = username
+            ? await db.query("SELECT id, username, email FROM users WHERE username = ? LIMIT 1", [username])
+            : await db.query("SELECT id, username, email FROM users WHERE email = ? LIMIT 1", [email]);
+
+        const user = users[0] || null;
+
+        // Scoped to this one account instead of scanning every outstanding code in
+        // the table -- narrows the guess surface to a single code and keeps this a
+        // single bcrypt.compare regardless of how many resets are in flight system-wide.
         let matchedToken = null;
-        for (const token of tokens) {
-            const codeMatches = await bcrypt.compare(String(code), token.code_hash);
-            if (codeMatches) {
-                matchedToken = token;
-                break;
-            }
+        if (user) {
+            const [tokens] = await db.query(
+                "SELECT id, code_hash FROM password_reset_codes WHERE user_id = ? AND used_at IS NULL AND expires_at > NOW() LIMIT 1",
+                [user.id]
+            );
+            matchedToken = tokens[0] || null;
         }
 
-        if (!matchedToken) {
-            return res.status(400).json({ message: "Verification code expired or invalid." });
-        }
+        // Always compare against something, even for a nonexistent account or one
+        // with no outstanding code -- otherwise those cases return faster than a
+        // real mismatched-code attempt, a timing side channel that leaks account
+        // existence (same fix already applied to /api/login).
+        const codeMatches = await bcrypt.compare(String(code), matchedToken ? matchedToken.code_hash : dummyPasswordHash);
 
-        const [users] = await db.query(
-            "SELECT id FROM users WHERE id = ? LIMIT 1",
-            [matchedToken.user_id]
-        );
-
-        if (users.length === 0) {
+        if (!user || !matchedToken || !codeMatches) {
             return res.status(400).json({ message: "Verification code expired or invalid." });
         }
 
         const hashedPassword = await bcrypt.hash(newPassword, 10);
 
-        await db.query(
-            "UPDATE users SET password_hash = ? WHERE id = ?",
-            [hashedPassword, matchedToken.user_id]
-        );
+        await db.query("UPDATE users SET password_hash = ? WHERE id = ?", [hashedPassword, user.id]);
+        await db.query("UPDATE password_reset_codes SET used_at = NOW() WHERE id = ?", [matchedToken.id]);
+        await auth.destroyUserSessions(user.id);
 
-        await db.query(
-            "UPDATE password_reset_codes SET used_at = NOW() WHERE id = ?",
-            [matchedToken.id]
-        );
-
-        await auth.destroyUserSessions(matchedToken.user_id);
+        try {
+            await sendPasswordChangedNotification(user.email, user.username);
+        } catch (notifyErr) {
+            console.error("Failed to send password-changed notification:", notifyErr);
+        }
 
         res.json({ message: "Password updated successfully." });
     } catch (err) {
@@ -1096,6 +1139,10 @@ app.post("/api/register", authLimiter, async (req, res) => {
 
         if (!username || !email || !password) {
             return res.status(400).json({message: "Username, email, and password are required."});
+        }
+
+        if (!isPasswordStrongEnough(password)) {
+            return res.status(400).json({ message: `Password must be at least ${MIN_PASSWORD_LENGTH} characters.` });
         }
 
         const [existingUser] = await db.query("SELECT id FROM users WHERE email = ? OR username = ?", [email, username]);
