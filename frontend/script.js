@@ -1009,7 +1009,7 @@ async function renderSubtopicDetail(topics, topicSlug, subtopicSlug) {
                     </div>
                     ${unitsHtml}
                     <div class="topicdetailsection">
-                        <h3 class="topicdetailitemtitle">Problem sets</h3>
+                        <h3 class="topicdetailitemtitle">Problem Sets</h3>
                         ${problemSetMarkup}
                     </div>
                 </div>
@@ -1138,6 +1138,7 @@ function renderProblemSetResults(problemSets, searchTerm = "") {
                     <h2>${escapeHtml(problemSet.name)}</h2>
                     <div>${renderMarkdown(problemSet.description, "No description available yet.")}</div>
                     <p class="problemsetmeta">${escapeHtml([problemSet.topic, problemSet.subtopic, problemSet.unit].filter(Boolean).join(" / ") || "Topic not assigned")}</p>
+                    <p class="tag">${problemSet.calculatorAllowed ? "Calculator approved" : "No calculator"}</p>
                     <div class="problemsettags">
                         ${(problemSet.tags || []).map((tag) => `<span class="problemsettag">${escapeHtml(tag)}</span>`).join('')}
                     </div>
@@ -1552,6 +1553,11 @@ async function checkUserStatus() {
         const user = await getCurrentUser();
         if (!user) return;
 
+        const firstTimeNotice = document.getElementById("firstTimeNotice");
+        if (firstTimeNotice) {
+            firstTimeNotice.classList.add("hidden");
+        }
+
         const loginLinks = document.querySelectorAll("a[href='/login/']");
 
         loginLinks.forEach((link) => {
@@ -1682,6 +1688,7 @@ async function submitProblemSetSuggestion(event) {
         tags: selectedTags.join(','),
         description: document.getElementById("suggest-description").value.trim(),
         problems: JSON.stringify(problems),
+        calculatorAllowed: document.getElementById("suggest-calculator-allowed").checked,
         submitter: null
     };
 
@@ -1767,7 +1774,8 @@ async function initContributePage() {
         addProblemButton.addEventListener("click", addProblemItem);
     }
 
-    initMarkdownToolbar(".markdownbutton", document.getElementById("suggest-description"));
+    initMarkdownToolbar(".markdownbutton[data-markdown]", document.getElementById("suggest-description"));
+    initDesmosTool();
 
     const editId = new URLSearchParams(window.location.search).get("editSuggestion");
     const statusElement = document.getElementById("suggestion-status");
@@ -1799,6 +1807,7 @@ async function initContributePage() {
 
         document.getElementById("suggest-name").value = suggestion.name || "";
         document.getElementById("suggest-description").value = suggestion.description || "";
+        document.getElementById("suggest-calculator-allowed").checked = Boolean(suggestion.calculatorAllowed);
 
         await initSuggestionFormSelects({ topic: suggestion.topic, subtopic: suggestion.subtopic, unit: suggestion.unit, tags: suggestion.tags });
 
@@ -1989,6 +1998,203 @@ function updateProblemItemTypeFields(item) {
     }
 }
 
+let desmosToolEnabled = false;
+let desmosApiKeyValue = null;
+let desmosScriptPromise = null;
+
+function loadDesmosScript(apiKey) {
+    if (window.Desmos) {
+        return Promise.resolve();
+    }
+
+    if (desmosScriptPromise) {
+        return desmosScriptPromise;
+    }
+
+    desmosScriptPromise = new Promise((resolve, reject) => {
+        const script = document.createElement("script");
+        script.src = `https://www.desmos.com/api/v1.11/calculator.js?apiKey=${encodeURIComponent(apiKey)}`;
+        script.onload = () => {
+            if (window.Desmos) {
+                resolve();
+            } else {
+                reject(new Error("Desmos failed to initialize."));
+            }
+        };
+        script.onerror = () => reject(new Error("Failed to load the Desmos script."));
+        document.head.appendChild(script);
+    });
+
+    return desmosScriptPromise;
+}
+
+async function initDesmosTool() {
+    try {
+        const response = await fetch("/api/desmos-config");
+        const data = await response.json();
+
+        if (!response.ok || !data.enabled || !data.apiKey) {
+            return;
+        }
+
+        desmosToolEnabled = true;
+        desmosApiKeyValue = data.apiKey;
+        document.querySelectorAll(".desmostoolbutton").forEach((button) => button.classList.remove("hidden"));
+
+        document.addEventListener("click", (event) => {
+            const button = event.target.closest(".desmostoolbutton");
+            if (!button) {
+                return;
+            }
+
+            const textarea = resolveDesmosTargetTextarea(button);
+            if (textarea) {
+                openDesmosModal(textarea);
+            }
+        });
+    } catch (error) {
+        console.error("Failed to load Desmos config:", error);
+    }
+}
+
+function resolveDesmosTargetTextarea(button) {
+    const targetId = button.dataset.desmosTarget;
+    if (targetId) {
+        return document.getElementById(targetId);
+    }
+
+    const item = button.closest(".problem-item");
+    return item ? item.querySelector(".problem-prompt") : null;
+}
+
+function closeDesmosModal() {
+    const existing = document.querySelector(".desmosmodaloverlay");
+    if (existing) {
+        existing.remove();
+    }
+}
+
+function insertTextAtCursor(textarea, text) {
+    if (!textarea) {
+        return;
+    }
+
+    const start = textarea.selectionStart ?? textarea.value.length;
+    const end = textarea.selectionEnd ?? textarea.value.length;
+    textarea.value = textarea.value.slice(0, start) + text + textarea.value.slice(end);
+    textarea.focus();
+
+    const cursor = start + text.length;
+    textarea.setSelectionRange(cursor, cursor);
+    textarea.dispatchEvent(new Event("input", { bubbles: true }));
+}
+
+function openDesmosModal(targetTextarea) {
+    closeDesmosModal();
+
+    const overlay = document.createElement("div");
+    overlay.className = "desmosmodaloverlay";
+    overlay.innerHTML = `
+        <div class="desmosmodal">
+            <div class="desmosmodalheader">
+                <div class="desmosmodaltabs">
+                    <button type="button" class="desmosmodaltab desmosmodaltabactive" data-desmos-mode="graph">Graph</button>
+                    <button type="button" class="desmosmodaltab" data-desmos-mode="geometry">Geometry</button>
+                </div>
+                <button type="button" class="desmosmodalclose" aria-label="Close">&times;</button>
+            </div>
+            <div class="desmosmodalcalculator" id="desmosCalculatorMount"></div>
+            <div class="desmosmodalstatus" id="desmosModalStatus"></div>
+            <div class="desmosmodalactions">
+                <button type="button" class="authsubmit" id="desmosInsertButton">Insert into problem</button>
+            </div>
+        </div>
+    `;
+    document.body.appendChild(overlay);
+
+    let calculator = null;
+
+    async function mountCalculator(mode) {
+        const mount = document.getElementById("desmosCalculatorMount");
+        const status = document.getElementById("desmosModalStatus");
+        if (!mount) {
+            return;
+        }
+
+        mount.innerHTML = "";
+        if (status) {
+            status.textContent = "Loading Desmos...";
+        }
+
+        if (calculator) {
+            calculator.destroy();
+            calculator = null;
+        }
+
+        try {
+            await loadDesmosScript(desmosApiKeyValue);
+        } catch (error) {
+            console.error("Failed to load Desmos:", error);
+            if (status) {
+                status.textContent = "Unable to load Desmos right now.";
+            }
+            return;
+        }
+
+        try {
+            calculator = mode === "geometry" && window.Desmos.GeometryCalculator
+                ? window.Desmos.GeometryCalculator(mount)
+                : window.Desmos.GraphingCalculator(mount);
+
+            if (status) {
+                status.textContent = "";
+            }
+        } catch (error) {
+            console.error("Failed to start Desmos:", error);
+            if (status) {
+                status.textContent = "Unable to load Desmos right now.";
+            }
+        }
+    }
+
+    overlay.querySelectorAll(".desmosmodaltab").forEach((tab) => {
+        tab.addEventListener("click", () => {
+            overlay.querySelectorAll(".desmosmodaltab").forEach((otherTab) => otherTab.classList.remove("desmosmodaltabactive"));
+            tab.classList.add("desmosmodaltabactive");
+            mountCalculator(tab.dataset.desmosMode);
+        });
+    });
+
+    overlay.querySelector(".desmosmodalclose").addEventListener("click", closeDesmosModal);
+    overlay.addEventListener("click", (event) => {
+        if (event.target === overlay) {
+            closeDesmosModal();
+        }
+    });
+
+    document.getElementById("desmosInsertButton").addEventListener("click", () => {
+        if (!calculator) {
+            return;
+        }
+
+        const insertImage = (dataUri) => {
+            if (!dataUri) {
+                return;
+            }
+            insertTextAtCursor(targetTextarea, `\n![Desmos graph](${dataUri})\n`);
+            closeDesmosModal();
+        };
+
+        if (typeof calculator.screenshot === "function") {
+            insertImage(calculator.screenshot({ width: 600, height: 400 }));
+        } else if (typeof calculator.asyncScreenshot === "function") {
+            calculator.asyncScreenshot({ width: 600, height: 400 }, insertImage);
+        }
+    });
+
+    mountCalculator("graph");
+}
+
 function addProblemItem() {
     const container = document.getElementById('problem-items');
     if (!container) {
@@ -2013,6 +2219,7 @@ function addProblemItem() {
         </select>
         <label class="aboutustitle">Prompt</label>
         <textarea class="inputs problem-prompt" rows="4" placeholder="Enter here:" required></textarea>
+        <button class="markdownbutton desmostoolbutton${desmosToolEnabled ? '' : ' hidden'}" type="button">Insert Desmos graph</button>
         <label class="aboutustitle problem-choice-label">Answer Choices (select the correct one)</label>
         <div class="problem-choice-list" data-group-name="${groupName}"></div>
         <div class="choice-buttons">

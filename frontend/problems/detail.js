@@ -52,6 +52,7 @@ function renderProblemSetDetail(container, problemSetId, problemSet, problems) {
         <h1 class="topicdetailtitle">${escapeHtml(problemSet.name)}</h1>
         <button type="button" id="edit-problem-set-button" class="topicdetailback hidden">Edit this problem set</button>
         <div class="topicdetailtext">${renderMarkdown(problemSet.description, "No description available yet.")}</div>
+        <p class="tag">${problemSet.calculatorAllowed ? "Calculator approved" : "No calculator"}</p>
         ${problemsHtml}
     `;
 
@@ -111,17 +112,18 @@ function renderProblem(problem, index) {
     const choices = Array.isArray(problem.choices) ? problem.choices : [];
 
     const inputHtml = problem.type === "multiple_choice"
-        ? choices.map((choice) => `
+        ? choices.map((choice, choiceIndex) => `
             <label class="problemtakechoice">
-                <input type="radio" name="problem-${problem.id}" value="${escapeHtml(choice)}">
-                <span>${escapeHtml(choice)}</span>
+                <input type="radio" name="problem-${problem.id}" value="${escapeHtml(choice)}" class="problemtakechoiceinput">
+                <span class="problemtakechoiceletter">${String.fromCharCode(65 + choiceIndex)}</span>
+                <span class="problemtakechoicetext">${escapeHtml(choice)}</span>
             </label>
         `).join('')
         : `<input type="text" class="inputs" id="problem-input-${problem.id}" name="problem-${problem.id}" placeholder="Your answer" autocomplete="off">`;
 
     return `
         <form class="problemtakeitem" id="problemtakeform-${problem.id}">
-            <div class="problemtakeprompt">${number}. ${renderMarkdown(problem.prompt, "")}</div>
+            <div class="problemtakeprompt"><span class="problemtakenumber">${number}.</span> ${renderMarkdown(problem.prompt, "")}</div>
             <div class="problemtakeinput">${inputHtml}</div>
             <button type="submit" class="authsubmit">Check</button>
             <p class="problemtakefeedback"></p>

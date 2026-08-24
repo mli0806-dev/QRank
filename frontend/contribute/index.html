@@ -53,12 +53,18 @@
                     <label class="aboutustitle" for="suggest-tags">Tags (optional -- the subtopic's course tag is added automatically)</label>
                     <select id="suggest-tags" class="inputs" multiple size="6"></select>
 
+                    <label class="profiletoggle" for="suggest-calculator-allowed">
+                        <input type="checkbox" id="suggest-calculator-allowed">
+                        <span>Calculator approved</span>
+                    </label>
+
                     <label class="aboutustitle" for="suggest-description">Description (Markdown supported)</label>
                     <div class="markdowntoolbar">
                         <button class="markdownbutton" type="button" data-markdown="bold">Bold</button>
                         <button class="markdownbutton" type="button" data-markdown="italic">Italic</button>
                         <button class="markdownbutton" type="button" data-markdown="link">Link</button>
                         <button class="markdownbutton" type="button" data-markdown="code">Code</button>
+                        <button class="markdownbutton desmostoolbutton hidden" type="button" data-desmos-target="suggest-description">Insert Desmos graph</button>
                     </div>
                     <textarea id="suggest-description" class="inputs" rows="4" placeholder="Brief description of the set"></textarea>
 

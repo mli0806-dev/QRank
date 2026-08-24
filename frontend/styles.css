@@ -139,6 +139,10 @@ h2 {
   font-size: 18px;
 }
 
+.firsttimelink {
+  text-decoration: underline;
+}
+
 .body {
   text-align: center;
   margin-top: 30px;
@@ -162,7 +166,7 @@ h2 {
   width: 225px;
   height: 175px;
   text-align: center;
-  margin-top: 50px;
+  margin-top: 30px;
   background-color: var(--card);
   text-decoration: none;
   color: var(--text);
@@ -247,10 +251,6 @@ main.topicbg {
   opacity: 0.9;
 }
 
-#edit-problem-set-button {
-  margin-bottom: 0;
-}
-
 .topicdetailtitle {
   margin-top: 0;
   margin-bottom: 20px;
@@ -284,6 +284,7 @@ main.topicbg {
 .topicdetailitemtitle {
   font-size: 18px;
   font-weight: 400;
+  margin-bottom: 0;
 }
 
 .topicdetailitemmeta {
@@ -556,6 +557,7 @@ main.topicbg {
   max-width: 800px;
   margin: 40px auto 0;
   padding: 24px;
+  max-height: 1000px;
   background-color: var(--card);
   border: 1px solid var(--border);
 }
@@ -578,7 +580,6 @@ main.topicbg {
   display: flex;
   flex-direction: column;
   gap: 12px;
-  min-height: 160px;
   border: 1px solid var(--border);
 }
 
@@ -623,9 +624,7 @@ main.topicbg {
 .problemsetid {
   font-size: 16px;
   background-color: var(--card);
-  border: 1px solid var(--border);
   width: fit-content;
-  padding: 4px 8px;
 }
 
 .problemsetcard h2 {
@@ -646,39 +645,111 @@ main.topicbg {
   border: 1px solid var(--border);
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 16px;
 }
 
 .problemtakeitem.problemtakecorrect {
   border-color: rgb(60, 160, 90);
+  background-image: linear-gradient(rgba(60, 160, 90, 0.12), rgba(60, 160, 90, 0.12));
 }
 
 .problemtakeitem.problemtakeincorrect {
   border-color: rgb(190, 70, 70);
+  background-image: linear-gradient(rgba(190, 70, 70, 0.12), rgba(190, 70, 70, 0.12));
 }
 
 .problemtakeprompt {
   margin: 0;
   font-size: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.problemtakenumber {
+  font-size: 24px;
+  font-weight: 500;
+}
+
+.problemtakeprompt p {
+  margin: 0;
+}
+
+.problemtakeprompt img {
+  display: block;
+  max-width: 100%;
 }
 
 .problemtakeinput {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 16px;
 }
 
 .problemtakechoice {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 16px;
+  background-color: var(--card);
+  cursor: pointer;
   font-size: 16px;
+}
+
+.problemtakeitem.problemtakecorrect .problemtakechoice {
+  background-image: linear-gradient(rgba(60, 160, 90, 0.12), rgba(60, 160, 90, 0.12));
+}
+
+.problemtakeitem.problemtakeincorrect .problemtakechoice {
+  background-image: linear-gradient(rgba(190, 70, 70, 0.12), rgba(190, 70, 70, 0.12));
+}
+
+.problemtakechoice:hover {
+  border-color: var(--text);
+}
+
+.problemtakechoice:has(.problemtakechoiceinput:checked) {
+  border-color: var(--text);
+}
+
+.problemtakechoice:has(.problemtakechoiceinput:focus-visible) {
+  outline: 2px solid var(--text);
+  outline-offset: 2px;
+}
+
+.problemtakechoiceinput {
+  position: absolute;
+  width: 0;
+  height: 0;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.problemtakechoiceletter {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  flex-shrink: 0;
+  border: 1px solid var(--border);
+  font-size: 18px;
+  font-weight: 500;
+}
+
+.problemtakechoice:has(.problemtakechoiceinput:checked) .problemtakechoiceletter {
+  background-color: var(--text);
+  color: var(--bg);
+  border-color: var(--text);
 }
 
 .problemtakefeedback {
   margin: 0;
-  font-size: 14px;
+  font-size: 20px;
   font-weight: 500;
+}
+
+.problemtakefeedback:empty {
+  display: none;
 }
 
 .problemsetformpanel {
@@ -706,18 +777,13 @@ main.topicbg {
 }
 
 .problemsettag {
-  display: inline-flex;
-  align-items: center;
-  padding: 4px 8px;
-  font-size: 16px;
-  background-color: var(--card);
-  border: 1px solid var(--border);
+  font-size: 14px;
+  color: var(--textsec);
 }
 
 .profilecontainer {
   max-width: 1000px;
   margin: 0 auto;
-  padding: 50px;
 }
 
 .profilelink {
@@ -803,6 +869,92 @@ main.topicbg {
   align-items: center;
   gap: 8px;
   font-size: 16px;
+}
+
+.desmostoolbutton {
+  width: fit-content;
+}
+
+.desmosmodaloverlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 2000;
+  padding: 20px;
+  box-sizing: border-box;
+}
+
+.desmosmodal {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  max-width: 700px;
+  height: 100%;
+  max-height: 600px;
+  background-color: var(--card);
+  border: 1px solid var(--border);
+  box-sizing: border-box;
+}
+
+.desmosmodalheader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border);
+}
+
+.desmosmodaltabs {
+  display: flex;
+  gap: 8px;
+}
+
+.desmosmodaltab {
+  border: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--text);
+  font-family: inherit;
+  font-size: 14px;
+  padding: 6px 12px;
+  cursor: pointer;
+}
+
+.desmosmodaltabactive {
+  background: var(--card);
+  font-weight: 500;
+}
+
+.desmosmodalclose {
+  border: none;
+  background: none;
+  color: var(--text);
+  font-size: 22px;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0 4px;
+}
+
+.desmosmodalcalculator {
+  flex: 1;
+  position: relative;
+  min-height: 0;
+  background-color: white;
+}
+
+.desmosmodalstatus {
+  padding: 0 16px;
+  font-size: 14px;
+  color: var(--textsec);
+}
+
+.desmosmodalactions {
+  display: flex;
+  justify-content: flex-end;
+  padding: 12px 16px;
+  border-top: 1px solid var(--border);
 }
 
 .resetpanel {
@@ -891,7 +1043,7 @@ main.topicbg {
 }
 
 .tag {
-  font-size: 12px;
+  font-size: 14px;
   color: var(--textsec);
 }
 
@@ -901,6 +1053,8 @@ main.topicbg {
   justify-content: center;
   align-items: flex-start;
   flex-wrap: wrap;
+  padding: 50px;
+  padding-top: 0;
 }
 
 .calendarbox {
@@ -1383,7 +1537,7 @@ main.topicbg {
     width: 100%;
   }
 
-  .tabitems, .profilemenulink {
+  .tablist .tabitems, .tablist .profilemenulink {
     width: 100%;
     box-sizing: border-box;
     padding: 14px 20px;
@@ -1410,13 +1564,8 @@ main.topicbg {
     max-width: 360px;
   }
 
-  .topicdetail,
-  .profilecontainer {
-    padding: 28px 20px;
-  }
-
   .calendarlayout {
-    margin: 0 16px;
+    padding: 50px;
   }
 
   .calendarbox {
