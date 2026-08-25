@@ -79,6 +79,21 @@ async function requireAdmin(req, res, next) {
     next();
 }
 
+async function requireVerified(req, res, next) {
+    const user = await getSessionUser(req);
+
+    if (!user) {
+        return res.status(401).json({ message: "Not authenticated." });
+    }
+
+    if (user.role !== "verified" && user.role !== "admin") {
+        return res.status(403).json({ message: "Not authorized." });
+    }
+
+    req.user = user;
+    next();
+}
+
 function setSessionCookie(res, token, expiresAt) {
     res.cookie(SESSION_COOKIE_NAME, token, {
         httpOnly: true,
@@ -101,6 +116,7 @@ module.exports = {
     getSessionUser,
     requireAuth,
     requireAdmin,
+    requireVerified,
     setSessionCookie,
     clearSessionCookie
 };

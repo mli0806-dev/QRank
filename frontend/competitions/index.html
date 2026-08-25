@@ -9,23 +9,7 @@
     <link href="https://fonts.cdnfonts.com/css/d-din" rel="stylesheet">
 </head>
 <body>
-    <nav class="headerbox">
-        <div class="left">
-            <a href="/" class="sitetitle"><img src="/images/logo.png?v=3" alt="QRank" class="sitetitlelogo"></a>
-            <ul class="tablist">
-                <li><a class="tabitems" href="/topics/">Topics</a></li>
-                <li><a class="tabitems" href="/problems/">Problem Sets</a></li>
-                <li><a class="tabitems" href="/competitions/">Competitions</a></li>
-                <li><a class="tabitems" href="/rankings/">Rankings</a></li>
-                <li><a class="tabitems" href="/about/">About Us</a></li>
-                <li><a class="tabitems" href="/contribute/">Contribute</a></li>
-            </ul>
-        </div>
-        <div class="right">
-            <button id="themetoggler" class="themebutton">Dark Mode</button>
-            <a class="login" href="/login/">Login</a>
-        </div>
-    </nav>
+    <nav class="headerbox"></nav>
     <main>
         <h1 class="welcometext">Competitions</h1>
         <div class="calendarlayout">
@@ -50,11 +34,18 @@
                 <h2 class="savedcompetitionsheader">Saved Competitions</h2>
                 <p class="savedcompetitionsempty" id="savedCompetitionsEmpty">Loading your saved competitions...</p>
                 <ul class="savedcompetitionslist" id="savedCompetitionsList"></ul>
+                <div class="calendaractions">
+                    <a href="/competitions/add/" id="addCompetitionButton" class="topicdetailback hidden">Add Competition</a>
+                    <form id="joinCompetitionForm" class="joincompetitionform">
+                        <input type="text" id="joinCompetitionCode" class="inputs" placeholder="Enter invite code">
+                        <button type="submit" class="resetbutton">Join</button>
+                    </form>
+                </div>
             </aside>
         </div>
     </main>
-    <footer class="sitefooter">© 2026 QRank. All rights reserved. · <a class="footerlink" href="/tos/">Terms of Service</a> · <a class="footerlink" href="/privacy/">Privacy Policy</a></footer>
-    <script src="/competitions/calendar.js"></script>
+    <footer class="sitefooter"></footer>
     <script src="/script.js"></script>
+    <script src="/competitions/calendar.js"></script>
 </body>
 </html>

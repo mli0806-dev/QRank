@@ -10,26 +10,10 @@
     <script src="https://accounts.google.com/gsi/client" async defer></script>
 </head>
 <body>
-    <nav class="headerbox">
-        <div class="left">
-            <a href="/" class="sitetitle"><img src="/images/logo.png?v=3" alt="QRank" class="sitetitlelogo"></a>
-            <ul class="tablist">
-                <li><a class="tabitems" href="/topics/">Topics</a></li>
-                <li><a class="tabitems" href="/problems/">Problem Sets</a></li>
-                <li><a class="tabitems" href="/competitions/">Competitions</a></li>
-                <li><a class="tabitems" href="/rankings/">Rankings</a></li>
-                <li><a class="tabitems" href="/about/">About Us</a></li>
-                <li><a class="tabitems" href="/contribute/">Contribute</a></li>
-            </ul>
-        </div>
-        <div class="right">
-            <button id="themetoggler" class="themebutton">Dark Mode</button>
-            <a class="login" href="/login/">Login</a>
-        </div>
-    </nav>
+    <nav class="headerbox"></nav>
     <main class="auth">
         <div class="authcontainer">
-            <p style="font-size: 28px;">Login to QRank</p>
+            <p class="pagetitle">Login to QRank</p>
             <div id="login-error" class="autherrorhidden"></div>
             <form id="login-form" class="authform">
                 <label for="login-email">Email Address:</label>
@@ -59,7 +43,7 @@
             <div id="google-login-button" class="googlesigninbutton"></div>
         </div>
         <div class="authcontainer">
-            <p style="font-size: 28px;">Register for QRank</p>
+            <p class="pagetitle">Register for QRank</p>
             <div id="register-error" class="autherrorhidden"></div>
             <form id="register-form" class="authform">
                 <label for="register-username">Username:</label>
@@ -80,7 +64,7 @@
             <div id="google-register-button" class="googlesigninbutton googledisabled"></div>
         </div>
     </main>
-<footer class="sitefooter">© 2026 QRank. All rights reserved. · <a class="footerlink" href="/tos/">Terms of Service</a> · <a class="footerlink" href="/privacy/">Privacy Policy</a></footer>
+<footer class="sitefooter"></footer>
 <script src="/script.js"></script>
 <script src="/login/auth.js"></script>
 </body>

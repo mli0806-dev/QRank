@@ -5,6 +5,44 @@
     document.head.appendChild(script);
 })();
 
+function injectHeaderFooter() {
+    const nav = document.querySelector("nav.headerbox");
+    if (nav) {
+        const minimal = nav.dataset.navVariant === "minimal";
+        nav.innerHTML = minimal ? `
+            <div class="left">
+                <a href="/" class="sitetitle"><img src="/images/logo.png?v=3" alt="QRank" class="sitetitlelogo"></a>
+            </div>
+            <div class="right">
+                <button id="themetoggler" class="themebutton">Dark Mode</button>
+            </div>
+        ` : `
+            <div class="left">
+                <a href="/" class="sitetitle"><img src="/images/logo.png?v=3" alt="QRank" class="sitetitlelogo"></a>
+                <ul class="tablist">
+                    <li><a class="tabitems" href="/topics/">Topics</a></li>
+                    <li><a class="tabitems" href="/problems/">Problem Sets</a></li>
+                    <li><a class="tabitems" href="/competitions/">Competitions</a></li>
+                    <li><a class="tabitems" href="/rankings/">Rankings</a></li>
+                    <li><a class="tabitems" href="/about/">About Us</a></li>
+                    <li><a class="tabitems" href="/contribute/">Contribute</a></li>
+                </ul>
+            </div>
+            <div class="right">
+                <button id="themetoggler" class="themebutton">Dark Mode</button>
+                <a class="login" href="/login/">Login</a>
+            </div>
+        `;
+    }
+
+    const footer = document.querySelector("footer.sitefooter");
+    if (footer) {
+        footer.innerHTML = `© 2026 QRank. All rights reserved. · <a class="footerlink" href="/tos/">Terms of Service</a> · <a class="footerlink" href="/privacy/">Privacy Policy</a>`;
+    }
+}
+
+injectHeaderFooter();
+
 function initMobileNav() {
     const headerLeft = document.querySelector(".headerbox .left");
     const tablist = document.querySelector(".headerbox .tablist");
@@ -182,7 +220,16 @@ function renderMarkdown(value, emptyFallback = "No bio yet.") {
     }
 
     ensureMarkdownLinkHook();
-    return DOMPurify.sanitize(marked.parse(text));
+    return DOMPurify.sanitize(marked.parse(text, { breaks: true }));
+}
+
+function autoResizeTextarea(textarea) {
+    if (!textarea) {
+        return;
+    }
+
+    textarea.style.height = "0px";
+    textarea.style.height = `${textarea.scrollHeight}px`;
 }
 
 function insertMarkdownSnippet(textarea, prefix, suffix, placeholder, remove = false) {
@@ -268,9 +315,7 @@ function renderTopicIndex(topics) {
     container.innerHTML = topics.map(topic => {
         const subtopicshtml = topic.subtopics.map(subtopic => {
             const tagarray = subtopic.tags ? subtopic.tags.split(', ') : [];
-            const tagshtml = tagarray.map(tag => `
-                    <span class="tag">(${escapeHtml(tag)})</span>
-                `).join(' ');
+            const tagshtml = renderParenTags(tagarray);
 
             return `
                 <a href="/topics/${encodeURIComponent(slugify(topic.topic))}/${encodeURIComponent(slugify(subtopic.name))}">
@@ -323,7 +368,7 @@ function renderTopicDetail(topics, topicSlug) {
     const subtopicshtml = selectedTopic.subtopics.length
         ? selectedTopic.subtopics.map(subtopic => {
             const tagarray = subtopic.tags ? subtopic.tags.split(', ') : [];
-            const tagshtml = tagarray.map(tag => `<span class="tag">(${escapeHtml(tag)})</span>`).join(' ');
+            const tagshtml = renderParenTags(tagarray);
 
             return `
                 <a class="topicdetailitem" id="${slugify(subtopic.name)}" href="/topics/${encodeURIComponent(topicSlug)}/${encodeURIComponent(slugify(subtopic.name))}">
@@ -928,6 +973,42 @@ function initTopicNetworkMap(topics = []) {
     updateTransform();
 }
 
+function renderMarkdownToolbar() {
+    return `
+        <div class="markdowntoolbar">
+            <button class="markdownbutton" type="button" data-markdown="bold">Bold</button>
+            <button class="markdownbutton" type="button" data-markdown="italic">Italic</button>
+            <button class="markdownbutton" type="button" data-markdown="link">Link</button>
+            <button class="markdownbutton" type="button" data-markdown="code">Code</button>
+        </div>
+    `;
+}
+
+function renderParenTags(tagarray) {
+    return tagarray.map(tag => `<span class="tag">(${escapeHtml(tag)})</span>`).join(' ');
+}
+
+function renderProblemSetCard(problemSet, options = {}) {
+    const { showBreadcrumb = false, showCalculatorTag = false } = options;
+    const breadcrumb = showBreadcrumb
+        ? `<p class="problemsetmeta">${escapeHtml([problemSet.topic, problemSet.subtopic, problemSet.unit].filter(Boolean).join(" / ") || "Topic not assigned")}</p>`
+        : '';
+    const calculatorTag = showCalculatorTag && problemSet.calculatorAllowed
+        ? '<p class="tag">Calculator approved</p>'
+        : '';
+
+    return `
+        <a class="problemsetcard" href="/problems/${encodeURIComponent(problemSet.id)}">
+            <p class="problemsetid">Problem Set ID #${escapeHtml(problemSet.id)}</p>
+            <h2>${escapeHtml(problemSet.name)}</h2>
+            <div>${renderMarkdown(problemSet.description, "No description available yet.")}</div>
+            ${breadcrumb}${calculatorTag}<div class="problemsettags">
+                ${(problemSet.tags || []).map((tag) => `<span class="problemsettag">${escapeHtml(tag)}</span>`).join('')}
+            </div>
+        </a>
+    `;
+}
+
 async function renderSubtopicDetail(topics, topicSlug, subtopicSlug) {
     const container = document.getElementById("coursecontainer");
 
@@ -961,7 +1042,7 @@ async function renderSubtopicDetail(topics, topicSlug, subtopicSlug) {
     }
 
     const tagarray = selectedSubtopic.tags ? selectedSubtopic.tags.split(', ') : [];
-    const tagshtml = tagarray.map(tag => `<span class="tag">(${escapeHtml(tag)})</span>`).join(' ');
+    const tagshtml = renderParenTags(tagarray);
 
     const units = selectedSubtopic.units || [];
     const unitsHtml = units.length
@@ -985,16 +1066,7 @@ async function renderSubtopicDetail(topics, topicSlug, subtopicSlug) {
         const problemSetMarkup = problemSets.length
             ? `
                 <div class="problemsetgrid">
-                    ${problemSets.map((problemSet) => `
-                        <a class="problemsetcard" href="/problems/${encodeURIComponent(problemSet.id)}">
-                            <p class="problemsetid">Problem Set ID #${escapeHtml(problemSet.id)}</p>
-                            <h2>${escapeHtml(problemSet.name)}</h2>
-                            <div>${renderMarkdown(problemSet.description, "No description available yet.")}</div>
-                            <div class="problemsettags">
-                                ${(problemSet.tags || []).map((tag) => `<span class="problemsettag">${escapeHtml(tag)}</span>`).join('')}
-                            </div>
-                        </a>
-                    `).join('')}
+                    ${problemSets.map((problemSet) => renderProblemSetCard(problemSet)).join('')}
                 </div>
             `
             : '<div class="problemsetempty"><p>No problem sets have been assigned to this subtopic yet.</p></div>';
@@ -1066,16 +1138,7 @@ async function renderUnitDetail(topics, topicSlug, subtopicSlug, unitSlug) {
         const problemSetMarkup = problemSets.length
             ? `
                 <div class="problemsetgrid">
-                    ${problemSets.map((problemSet) => `
-                        <a class="problemsetcard" href="/problems/${encodeURIComponent(problemSet.id)}">
-                            <p class="problemsetid">Problem Set ID #${escapeHtml(problemSet.id)}</p>
-                            <h2>${escapeHtml(problemSet.name)}</h2>
-                            <div>${renderMarkdown(problemSet.description, "No description available yet.")}</div>
-                            <div class="problemsettags">
-                                ${(problemSet.tags || []).map((tag) => `<span class="problemsettag">${escapeHtml(tag)}</span>`).join('')}
-                            </div>
-                        </a>
-                    `).join('')}
+                    ${problemSets.map((problemSet) => renderProblemSetCard(problemSet)).join('')}
                 </div>
             `
             : '<div class="problemsetempty"><p>No problem sets have been assigned to this unit yet.</p></div>';
@@ -1132,18 +1195,7 @@ function renderProblemSetResults(problemSets, searchTerm = "") {
 
     container.innerHTML = `
         <div class="problemsetlist">
-            ${problemSets.map((problemSet) => `
-                <a class="problemsetcard" href="/problems/${encodeURIComponent(problemSet.id)}">
-                    <p class="problemsetid">Problem Set ID #${escapeHtml(problemSet.id)}</p>
-                    <h2>${escapeHtml(problemSet.name)}</h2>
-                    <div>${renderMarkdown(problemSet.description, "No description available yet.")}</div>
-                    <p class="problemsetmeta">${escapeHtml([problemSet.topic, problemSet.subtopic, problemSet.unit].filter(Boolean).join(" / ") || "Topic not assigned")}</p>
-                    <p class="tag">${problemSet.calculatorAllowed ? "Calculator approved" : "No calculator"}</p>
-                    <div class="problemsettags">
-                        ${(problemSet.tags || []).map((tag) => `<span class="problemsettag">${escapeHtml(tag)}</span>`).join('')}
-                    </div>
-                </a>
-            `).join('')}
+            ${problemSets.map((problemSet) => renderProblemSetCard(problemSet, { showBreadcrumb: true, showCalculatorTag: true })).join('')}
         </div>
     `;
 }
@@ -1225,7 +1277,7 @@ async function renderProfilePage() {
         container.innerHTML = `
             <div class="topicdetail">
                 <h1 class="topicdetailtitle">${escapeHtml(user.username)}</h1>
-                <div class="topicdetailpanel">
+                <div class="profiledetailpanel">
                     <p class="topicdetailtext"><span>User ID:</span> ${escapeHtml(user.id)}</p>
                     ${showEmail ? `<p class="topicdetailtext"><span>Email:</span> ${escapeHtml(user.email || "No email on file.")}</p>` : ""}
                     <p class="topicdetailtext"><span>Bio:</span></p>
@@ -1237,12 +1289,7 @@ async function renderProfilePage() {
                             <span class="profilesectiontitle">Edit public profile</span>
                             <form id="profileSettingsForm" class="profileform">
                                 <label class="profilefieldlabel" for="bioInput">Bio</label>
-                                <div class="markdowntoolbar">
-                                    <button class="markdownbutton" type="button" data-markdown="bold">Bold</button>
-                                    <button class="markdownbutton" type="button" data-markdown="italic">Italic</button>
-                                    <button class="markdownbutton" type="button" data-markdown="link">Link</button>
-                                    <button class="markdownbutton" type="button" data-markdown="code">Code</button>
-                                </div>
+                                ${renderMarkdownToolbar()}
                                 <textarea id="bioInput" class="inputs profilebio" maxlength="1000" rows="8" placeholder="Tell people about yourself">${escapeHtml(user.bio || "")}</textarea>
                                 <label class="profiletoggle">
                                     <input type="checkbox" id="publicEmailToggle" ${user.publicEmail ? "checked" : ""}>
@@ -1288,6 +1335,11 @@ async function renderProfilePage() {
                 applyMarkdownToBio(button.dataset.markdown, true);
             });
         });
+
+        if (bioInput) {
+            autoResizeTextarea(bioInput);
+            bioInput.addEventListener("input", () => autoResizeTextarea(bioInput));
+        }
 
         if (profileSettingsForm && bioInput && publicEmailToggle) {
             profileSettingsForm.addEventListener("submit", async (event) => {

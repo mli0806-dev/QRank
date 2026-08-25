@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>QRank - Add Competition</title>
+    <link rel="icon" type="image/png" href="/images/favicon.png?v=2">
+    <link rel="stylesheet" href="/styles.css">
+    <link href="https://fonts.cdnfonts.com/css/d-din" rel="stylesheet">
+</head>
+<body>
+    <nav class="headerbox"></nav>
+    <main>
+        <div class="topicdetail">
+            <p class="aboutustitle">Add Competition</p>
+            <p class="aboutustext" id="add-competition-subtext">Set the competition's schedule and curate a problem set for it.</p>
+            <div class="aboutuspanel">
+                <form id="add-competition-form" class="suggestionform">
+                    <label class="aboutustitle" for="competition-title">Competition title</label>
+                    <input id="competition-title" class="inputs" type="text" placeholder="Example: SAS Heuristics Contest" required>
+
+                    <label class="aboutustitle" for="competition-category">Category (optional)</label>
+                    <input id="competition-category" class="inputs" type="text" placeholder="Example: Math">
+
+                    <label class="aboutustitle" for="competition-start-date">Start date</label>
+                    <input id="competition-start-date" class="inputs" type="date" required>
+
+                    <label class="aboutustitle" for="competition-end-date">End date</label>
+                    <input id="competition-end-date" class="inputs" type="date" required>
+
+                    <label class="aboutustitle">Start time</label>
+                    <div class="timeselect">
+                        <select id="competition-start-hour" class="inputs" required>
+                            <option value="" disabled selected>Hour</option>
+                        </select>
+                        <select id="competition-start-minute" class="inputs" required>
+                            <option value="" disabled selected>Minute</option>
+                        </select>
+                        <select id="competition-start-ampm" class="inputs" required>
+                            <option value="" disabled selected>AM/PM</option>
+                            <option value="AM">AM</option>
+                            <option value="PM">PM</option>
+                        </select>
+                    </div>
+
+                    <label class="aboutustitle">End time</label>
+                    <div class="timeselect">
+                        <select id="competition-end-hour" class="inputs" required>
+                            <option value="" disabled selected>Hour</option>
+                        </select>
+                        <select id="competition-end-minute" class="inputs" required>
+                            <option value="" disabled selected>Minute</option>
+                        </select>
+                        <select id="competition-end-ampm" class="inputs" required>
+                            <option value="" disabled selected>AM/PM</option>
+                            <option value="AM">AM</option>
+                            <option value="PM">PM</option>
+                        </select>
+                    </div>
+
+                    <label class="profiletoggle" for="competition-private">
+                        <input type="checkbox" id="competition-private">
+                        <span>Private (invite-only via link/code)</span>
+                    </label>
+
+                    <label class="aboutustitle" for="competition-problemset-name">Problem set name (optional)</label>
+                    <input id="competition-problemset-name" class="inputs" type="text" placeholder="Defaults to the competition title">
+
+                    <label class="aboutustitle" for="competition-problemset-description">Problem set description (Markdown supported)</label>
+                    <div class="markdowntoolbar">
+                        <button class="markdownbutton" type="button" data-markdown="bold">Bold</button>
+                        <button class="markdownbutton" type="button" data-markdown="italic">Italic</button>
+                        <button class="markdownbutton" type="button" data-markdown="link">Link</button>
+                        <button class="markdownbutton" type="button" data-markdown="code">Code</button>
+                        <button class="markdownbutton desmostoolbutton hidden" type="button" data-desmos-target="competition-problemset-description">Insert Desmos graph</button>
+                    </div>
+                    <textarea id="competition-problemset-description" class="inputs" rows="4" placeholder="Brief description of the problem set"></textarea>
+
+                    <div class="problem-builder">
+                        <div class="problem-builder-header">
+                            <span class="aboutustitle">Problems</span>
+                            <button type="button" id="add-problem-button" class="authsubmit">Add problem</button>
+                        </div>
+                        <div id="problem-items" class="problem-items"></div>
+                    </div>
+
+                    <button type="submit" class="authsubmit">Create competition</button>
+                </form>
+                <div id="add-competition-status" class="problemsetstatus" aria-live="polite"></div>
+            </div>
+        </div>
+    </main>
+    <footer class="sitefooter"></footer>
+    <script src="/script.js"></script>
+    <script src="/competitions/add.js"></script>
+</body>
+</html>

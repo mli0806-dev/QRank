@@ -25,7 +25,7 @@ const sendCompetitionDetailPage = (req, res) => res.sendFile(competitionDetailPa
 const sendProblemSetDetailPage = (req, res) => res.sendFile(problemSetDetailPagePath);
 const resetCodeTtlMinutes = parseInt(process.env.RESET_CODE_TTL_MINUTES || "15", 10);
 const googleClientId = process.env.GOOGLE_CLIENT_ID || "";
-const desmosApiKey = process.env.DESMOS_API_KEY || "";
+const desmosApiKey = (process.env.DESMOS_API_KEY || "").trim();
 const smtpPort = parseInt(process.env.SMTP_PORT || "587", 10);
 const smtpSecure = String(process.env.SMTP_SECURE || "false").toLowerCase() === "true";
 const mailerReady = Boolean(
@@ -1060,7 +1060,7 @@ app.get("/api/competitions", async (req, res) => {
                 TIME_FORMAT(start_time, '%l:%i:%p') AS start_time,
                 TIME_FORMAT(end_time, '%l:%i:%p') AS end_time
             FROM competitions
-            WHERE start_date <= ? AND end_date >= ?
+            WHERE start_date <= ? AND end_date >= ? AND is_private = 0
         `, [endDateBoundary, startDateBoundary]);
         res.json(rows);
     } catch (err) {
@@ -1069,12 +1069,36 @@ app.get("/api/competitions", async (req, res) => {
     }
 });
 
+app.get("/api/competitions/lookup", async (req, res) => {
+    try {
+        const code = String(req.query.code || "").trim();
+
+        if (!code) {
+            return res.status(400).json({ message: "A join code is required." });
+        }
+
+        const [rows] = await db.query(
+            "SELECT id FROM competitions WHERE join_code = ? LIMIT 1",
+            [code]
+        );
+
+        if (rows.length === 0) {
+            return res.status(404).json({ message: "No competition matches that code." });
+        }
+
+        res.json({ competitionId: rows[0].id, code });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ message: "Database query failed." });
+    }
+});
+
 app.get("/api/competitions/:id", async (req, res) => {
     try {
         const { id } = req.params;
 
         const [rows] = await db.query(`
-            SELECT id, title, category,
+            SELECT id, title, category, problem_set_id, is_private, join_code,
                 DATE_FORMAT(start_date, '%Y-%m-%d') AS start_date,
                 DATE_FORMAT(end_date, '%Y-%m-%d') AS end_date,
                 TIME_FORMAT(start_time, '%l:%i:%p') AS start_time,
@@ -1088,10 +1112,103 @@ app.get("/api/competitions/:id", async (req, res) => {
             return res.status(404).json({ message: "Competition not found." });
         }
 
-        res.json(rows[0]);
+        const competition = rows[0];
+
+        if (competition.is_private && competition.join_code !== String(req.query.code || "")) {
+            return res.status(404).json({ message: "Competition not found." });
+        }
+
+        res.json({
+            id: competition.id,
+            title: competition.title,
+            category: competition.category,
+            startDate: competition.start_date,
+            endDate: competition.end_date,
+            startTime: competition.start_time,
+            endTime: competition.end_time,
+            problemSetId: competition.problem_set_id,
+            isPrivate: Boolean(competition.is_private),
+            joinCode: competition.join_code
+        });
     } catch (err) {
         console.error(err);
         res.status(500).json({ message: "Database query failed." });
+    }
+});
+
+app.post("/api/competitions", auth.requireVerified, async (req, res) => {
+    const {
+        title, category, startDate, endDate, startTime, endTime, isPrivate,
+        problemSetName, problemSetDescription, problems
+    } = req.body || {};
+
+    if (!title || !startDate || !endDate || !startTime || !endTime || !Array.isArray(problems)) {
+        return res.status(400).json({ message: "Title, start date, end date, start time, end time, and problems are required." });
+    }
+
+    const validProblems = problems.filter(problem => problem && problem.prompt && problem.answer);
+
+    if (validProblems.length === 0) {
+        return res.status(400).json({ message: "At least one valid problem is required." });
+    }
+
+    const connection = await db.getConnection();
+
+    try {
+        await connection.beginTransaction();
+
+        const [problemSetResult] = await connection.query(
+            "INSERT INTO problem_sets (name, description) VALUES (?, ?)",
+            [String(problemSetName || title).trim(), String(problemSetDescription || "").trim()]
+        );
+        const problemSetId = problemSetResult.insertId;
+
+        for (let position = 0; position < validProblems.length; position += 1) {
+            const problem = validProblems[position];
+            const type = problem.type === "multiple_choice" ? "multiple_choice" : "free_response";
+            const choices = type === "multiple_choice" && Array.isArray(problem.choices)
+                ? JSON.stringify(problem.choices)
+                : null;
+
+            await connection.query(
+                "INSERT INTO problems (problem_set_id, position, type, prompt, choices, answer) VALUES (?, ?, ?, ?, ?, ?)",
+                [problemSetId, position, type, String(problem.prompt), choices, String(problem.answer)]
+            );
+        }
+
+        const cleanIsPrivate = isPrivate ? 1 : 0;
+        const joinCode = cleanIsPrivate ? crypto.randomBytes(6).toString('hex') : null;
+
+        const [competitionResult] = await connection.query(
+            "INSERT INTO competitions (title, category, start_date, end_date, start_time, end_time, problem_set_id, is_private, join_code) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            [
+                String(title).trim(),
+                category ? String(category).trim() : null,
+                startDate,
+                endDate,
+                startTime || null,
+                endTime || null,
+                problemSetId,
+                cleanIsPrivate,
+                joinCode
+            ]
+        );
+
+        await connection.commit();
+
+        res.status(201).json({
+            message: "Competition created.",
+            competitionId: competitionResult.insertId,
+            problemSetId,
+            isPrivate: Boolean(cleanIsPrivate),
+            joinCode
+        });
+    } catch (err) {
+        await connection.rollback();
+        console.error(err);
+        res.status(500).json({ message: "Failed to create competition." });
+    } finally {
+        connection.release();
     }
 });
 

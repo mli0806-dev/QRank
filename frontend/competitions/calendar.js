@@ -149,13 +149,59 @@ function getPreviousMonth() {
     calLoad();
 }
 
+async function initAddCompetitionButton() {
+    const button = document.getElementById("addCompetitionButton");
+    if (!button) {
+        return;
+    }
+
+    const currentUser = await getCurrentUser();
+    if (currentUser && (currentUser.role === "verified" || currentUser.role === "admin")) {
+        button.classList.remove("hidden");
+    }
+}
+
+function initJoinCompetitionForm() {
+    const form = document.getElementById("joinCompetitionForm");
+    const input = document.getElementById("joinCompetitionCode");
+    if (!form || !input) {
+        return;
+    }
+
+    form.addEventListener("submit", async (event) => {
+        event.preventDefault();
+
+        const code = input.value.trim();
+        if (!code) {
+            return;
+        }
+
+        try {
+            const response = await fetch(`/api/competitions/lookup?code=${encodeURIComponent(code)}`);
+            const data = await response.json();
+
+            if (!response.ok) {
+                alert(data.message || "No competition matches that code.");
+                return;
+            }
+
+            window.location.href = `/competitions/${encodeURIComponent(data.competitionId)}?code=${encodeURIComponent(code)}`;
+        } catch (error) {
+            console.error("Failed to look up competition code:", error);
+            alert("Unable to look up that code right now.");
+        }
+    });
+}
+
 document.addEventListener("DOMContentLoaded", () => {
     const prevButton = document.getElementById("prevmonth");
     const nextButton = document.getElementById("nextmonth");
-    
+
     if (prevButton) prevButton.addEventListener("click", getPreviousMonth);
     if (nextButton) nextButton.addEventListener("click", getNextMonth);
 
     calLoad();
     loadSavedCompetitions();
+    initAddCompetitionButton();
+    initJoinCompetitionForm();
 });

@@ -52,7 +52,7 @@ function renderProblemSetDetail(container, problemSetId, problemSet, problems) {
         <h1 class="topicdetailtitle">${escapeHtml(problemSet.name)}</h1>
         <button type="button" id="edit-problem-set-button" class="topicdetailback hidden">Edit this problem set</button>
         <div class="topicdetailtext">${renderMarkdown(problemSet.description, "No description available yet.")}</div>
-        <p class="tag">${problemSet.calculatorAllowed ? "Calculator approved" : "No calculator"}</p>
+        ${problemSet.calculatorAllowed ? '<p class="tag">Calculator approved</p>' : ''}
         ${problemsHtml}
     `;
 

@@ -18,7 +18,8 @@ async function loadCompetitionDetail() {
     }
 
     try {
-        const response = await fetch(`/api/competitions/${encodeURIComponent(competitionId)}`);
+        const code = new URLSearchParams(window.location.search).get("code") || "";
+        const response = await fetch(`/api/competitions/${encodeURIComponent(competitionId)}${code ? `?code=${encodeURIComponent(code)}` : ""}`);
 
         if (!response.ok) {
             container.innerHTML = `
@@ -35,11 +36,13 @@ async function loadCompetitionDetail() {
             <a class="topicdetailback" href="/competitions/">Back to Competitions</a>
             <h1 class="topicdetailtitle">${escapeHtml(competition.title)}</h1>
             <button type="button" id="save-competition-button" class="topicdetailback hidden">Save this competition</button>
-            <div class="topicdetailpanel">
+            <div class="topicdetailpanel competitiondetailpanel">
                 <p class="topicdetailtext"><span>Category:</span> ${escapeHtml(competition.category || "Uncategorized")}</p>
-                <p class="topicdetailtext"><span>Dates:</span> ${escapeHtml(competition.start_date)} to ${escapeHtml(competition.end_date)}</p>
-                <p class="topicdetailtext"><span>Time:</span> ${escapeHtml(competition.start_time)} - ${escapeHtml(competition.end_time)}</p>
+                <p class="topicdetailtext"><span>Dates:</span> ${escapeHtml(competition.startDate)} to ${escapeHtml(competition.endDate)}</p>
+                <p class="topicdetailtext"><span>Time:</span> ${escapeHtml(competition.startTime)} - ${escapeHtml(competition.endTime)}</p>
+                ${competition.isPrivate ? `<p class="topicdetailtext"><span>Invite code:</span> ${escapeHtml(competition.joinCode)}</p>` : ''}
             </div>
+            ${competition.problemSetId ? `<a class="topicdetailback competitiontakelink" href="/problems/${encodeURIComponent(competition.problemSetId)}">Take this competition's problem set</a>` : ''}
         `;
 
         initSaveCompetitionButton(competitionId);
