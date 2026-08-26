@@ -2194,8 +2194,8 @@ function openDesmosModal(targetTextarea) {
         }
 
         try {
-            calculator = mode === "geometry" && window.Desmos.GeometryCalculator
-                ? window.Desmos.GeometryCalculator(mount)
+            calculator = mode === "geometry"
+                ? window.Desmos.Geometry(mount)
                 : window.Desmos.GraphingCalculator(mount);
 
             if (status) {

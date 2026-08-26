@@ -101,15 +101,21 @@ function renderSavedCompetitions(savedCompetitions) {
     }
 
     emptyEl.textContent = "";
-    listEl.innerHTML = savedCompetitions.map((competition) => `
+    listEl.innerHTML = savedCompetitions.map((competition) => {
+        const href = competition.is_private
+            ? `/competitions/${competition.id}?code=${encodeURIComponent(competition.join_code)}`
+            : `/competitions/${competition.id}`;
+
+        return `
         <li class="savedcompetitionitem">
             <div class="savedcompetitioninfo">
-                <a class="savedcompetitiontitle" href="/competitions/${competition.id}">${escapeHtml(competition.title)}</a>
+                <a class="savedcompetitiontitle" href="${href}">${escapeHtml(competition.title)}</a>
                 <span class="savedcompetitiondates">${escapeHtml(competition.start_date)} - ${escapeHtml(competition.end_date)}</span>
             </div>
             <button type="button" class="savedcompetitionremove" data-competition-id="${competition.id}">Remove</button>
         </li>
-    `).join("");
+    `;
+    }).join("");
 
     listEl.querySelectorAll(".savedcompetitionremove").forEach((button) => {
         button.addEventListener("click", async () => {

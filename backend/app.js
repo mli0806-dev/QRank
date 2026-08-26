@@ -1215,7 +1215,7 @@ app.post("/api/competitions", auth.requireVerified, async (req, res) => {
 app.get("/api/saved-competitions", auth.requireAuth, async (req, res) => {
     try {
         const [rows] = await db.query(`
-            SELECT c.id, c.title, c.category,
+            SELECT c.id, c.title, c.category, c.is_private, c.join_code,
                 DATE_FORMAT(c.start_date, '%Y-%m-%d') AS start_date,
                 DATE_FORMAT(c.end_date, '%Y-%m-%d') AS end_date,
                 TIME_FORMAT(c.start_time, '%l:%i:%p') AS start_time,
