@@ -1020,13 +1020,18 @@ main.topicbg {
 .savedcompetitionsempty {
   font-size: var(--fs-1);
   color: var(--textsec);
-  margin: 0;
+  margin-top: var(--space-3);
   margin-bottom: var(--space-3);
+}
+
+.savedcompetitionsempty:empty {
+  margin: 0;
 }
 
 .savedcompetitionslist {
   list-style: none;
   margin: 0;
+  margin-top: var(--space-3);
   margin-bottom: var(--space-3);
   padding: 0;
   display: flex;
@@ -1097,9 +1102,9 @@ main.topicbg {
 .calendarbutton {
   all: unset;
   font-family: inherit;
-  font-size: var(--fs-2);
+  font-size: 20px;
+  line-height: 20px;
   color: var(--text);
-  padding: 10px 14px;
 }
 
 .calendarheader {
