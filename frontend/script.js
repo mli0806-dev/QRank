@@ -1805,12 +1805,16 @@ async function initContributePage() {
     const subtext = document.getElementById("contribute-page-subtext");
 
     if (!currentUser) {
-        const panel = document.querySelector(".aboutuspanel");
+        const fields = document.getElementById("suggest-fields");
+        const right = document.querySelector(".problemsetdetailright");
         if (subtext) {
             subtext.textContent = "You need to be logged in to contribute a problem set.";
         }
-        if (panel) {
-            panel.innerHTML = `<p class="topicdetailtext">Please <a class="footerlink" href="/login/">log in</a> to submit a problem set.</p>`;
+        if (fields) {
+            fields.innerHTML = `<p class="topicdetailtext">Please <a class="footerlink" href="/login/">log in</a> to submit a problem set.</p>`;
+        }
+        if (right) {
+            right.classList.add("hidden");
         }
         return;
     }
@@ -1897,16 +1901,16 @@ async function initContributePage() {
 }
 
 function serializeProblemItems() {
-    const items = Array.from(document.querySelectorAll('.problem-item'));
+    const items = Array.from(document.querySelectorAll('.problemtakeitem'));
     return items.map((item) => {
         const prompt = item.querySelector('.problem-prompt').value.trim();
         const type = item.querySelector('.problem-type').value;
 
         if (type === 'multiple_choice') {
-            const choiceRows = Array.from(item.querySelectorAll('.choice-row'));
+            const choiceRows = Array.from(item.querySelectorAll('.problemtakechoice'));
             const choices = choiceRows.map(row => row.querySelector('.choice-input').value.trim()).filter(Boolean);
-            const checkedRadio = item.querySelector('.choice-correct-radio:checked');
-            const checkedRow = checkedRadio ? checkedRadio.closest('.choice-row') : null;
+            const checkedRadio = item.querySelector('.problemtakechoiceinput:checked');
+            const checkedRow = checkedRadio ? checkedRadio.closest('.problemtakechoice') : null;
             const answer = checkedRow ? checkedRow.querySelector('.choice-input').value.trim() : '';
 
             return { prompt, type, choices, answer };
@@ -1917,11 +1921,70 @@ function serializeProblemItems() {
     }).filter(problem => problem.prompt && problem.type && problem.answer && (problem.type !== 'multiple_choice' || problem.choices.length > 0));
 }
 
-function removeProblemItem(button) {
-    const item = button.closest('.problem-item');
-    if (item) {
-        item.remove();
+function getProblemBuilderItems() {
+    const container = document.getElementById('problem-items');
+    return container ? Array.from(container.children) : [];
+}
+
+function showProblemBuilderItem(index) {
+    getProblemBuilderItems().forEach((item, itemIndex) => {
+        item.classList.toggle('hidden', itemIndex !== index);
+    });
+
+    document.querySelectorAll('#problem-builder-toc .problemtocitem').forEach((button) => {
+        button.classList.toggle('problemtocitemactive', Number(button.dataset.problemIndex) === index);
+    });
+}
+
+function refreshProblemBuilderToc() {
+    const toc = document.getElementById('problem-builder-toc');
+    if (!toc) {
+        return;
     }
+
+    toc.innerHTML = getProblemBuilderItems().map((_, index) => `
+        <button type="button" class="problemtocitem" data-problem-index="${index}">${index + 1}</button>
+    `).join('');
+
+    toc.querySelectorAll('.problemtocitem').forEach((button) => {
+        button.addEventListener('click', () => {
+            showProblemBuilderItem(Number(button.dataset.problemIndex));
+        });
+    });
+}
+
+function refreshProblemBuilderNav() {
+    const items = getProblemBuilderItems();
+    items.forEach((item, index) => {
+        const prevButton = item.querySelector('[data-nav="prev"]');
+        const nextButton = item.querySelector('[data-nav="next"]');
+        if (prevButton) {
+            prevButton.classList.toggle('hidden', index === 0);
+        }
+        if (nextButton) {
+            nextButton.classList.toggle('hidden', index === items.length - 1);
+        }
+    });
+}
+
+function refreshProblemBuilder(activeIndex) {
+    refreshProblemBuilderToc();
+    refreshProblemBuilderNav();
+    showProblemBuilderItem(activeIndex);
+}
+
+function removeProblemItem(button) {
+    const item = button.closest('.problemtakeitem');
+    if (!item) {
+        return;
+    }
+
+    const items = getProblemBuilderItems();
+    const removedIndex = items.indexOf(item);
+    item.remove();
+
+    const remainingCount = getProblemBuilderItems().length;
+    refreshProblemBuilder(Math.max(Math.min(removedIndex, remainingCount - 1), 0));
 }
 
 const CHOICE_LETTERS = ['A', 'B', 'C', 'D', 'E'];
@@ -1930,14 +1993,14 @@ const MAX_CHOICES = CHOICE_LETTERS.length;
 let problemItemCounter = 0;
 
 function renumberChoices(item) {
-    const rows = Array.from(item.querySelectorAll('.choice-row'));
+    const rows = Array.from(item.querySelectorAll('.problemtakechoice'));
     rows.forEach((row, index) => {
         const letter = CHOICE_LETTERS[index];
         const letterLabel = row.querySelector('.choice-letter-label');
         const input = row.querySelector('.choice-input');
 
         if (letterLabel) {
-            letterLabel.textContent = `${letter}.`;
+            letterLabel.textContent = letter;
         }
         if (input) {
             input.placeholder = `Choice ${letter}`;
@@ -1947,10 +2010,10 @@ function renumberChoices(item) {
 
 function createChoiceRow(groupName) {
     const row = document.createElement('div');
-    row.className = 'choice-row';
+    row.className = 'problemtakechoice';
     row.innerHTML = `
-        <label class="choice-letter">
-            <input type="radio" name="${groupName}" class="choice-correct-radio" title="Mark as the correct answer" required>
+        <label class="problemtakechoiceletter">
+            <input type="radio" name="${groupName}" class="problemtakechoiceinput" title="Mark as the correct answer" required>
             <span class="choice-letter-label"></span>
         </label>
         <input class="inputs choice-input" type="text" placeholder="Choice" required>
@@ -1964,7 +2027,7 @@ function addChoiceRow(item) {
         return;
     }
 
-    const rows = choiceList.querySelectorAll('.choice-row');
+    const rows = choiceList.querySelectorAll('.problemtakechoice');
     if (rows.length >= MAX_CHOICES) {
         return;
     }
@@ -1979,7 +2042,7 @@ function removeChoiceRow(item) {
         return;
     }
 
-    const rows = choiceList.querySelectorAll('.choice-row');
+    const rows = choiceList.querySelectorAll('.problemtakechoice');
     if (rows.length <= MIN_CHOICES) {
         return;
     }
@@ -1995,7 +2058,7 @@ function updateProblemItemTypeFields(item) {
     const choiceButtons = item.querySelector('.choice-buttons');
     const answerLabel = item.querySelector('.problem-answer-label');
     const answerInput = item.querySelector('.problem-answer');
-    const correctRadios = Array.from(item.querySelectorAll('.choice-correct-radio'));
+    const correctRadios = Array.from(item.querySelectorAll('.problemtakechoiceinput'));
     const choiceInputs = Array.from(item.querySelectorAll('.choice-input'));
 
     if (type === 'free_response') {
@@ -2115,7 +2178,7 @@ function resolveDesmosTargetTextarea(button) {
         return document.getElementById(targetId);
     }
 
-    const item = button.closest(".problem-item");
+    const item = button.closest(".problemtakeitem");
     return item ? item.querySelector(".problem-prompt") : null;
 }
 
@@ -2258,7 +2321,7 @@ function addProblemItem() {
     const groupName = `correct-choice-${problemItemCounter}`;
 
     const template = document.createElement('div');
-    template.className = 'problem-item';
+    template.className = 'problem-item problemtakeitem';
     template.innerHTML = `
         <div class="problem-item-header">
             <span class="aboutustitle">Problem ${problemIndex}</span>
@@ -2280,6 +2343,10 @@ function addProblemItem() {
         </div>
         <label class="aboutustitle problem-answer-label">Acceptable Answers</label>
         <input class="inputs problem-answer" type="text" placeholder="Enter acceptable answers separated by commas:">
+        <div class="problemtakenav">
+            <button type="button" class="topicdetailback" data-nav="prev">Previous problem</button>
+            <button type="button" class="topicdetailback" data-nav="next">Next problem</button>
+        </div>
     `;
 
     container.appendChild(template);
@@ -2308,7 +2375,29 @@ function addProblemItem() {
         typeSelect.addEventListener('change', () => updateProblemItemTypeFields(template));
     }
 
+    const prevButton = template.querySelector('[data-nav="prev"]');
+    if (prevButton) {
+        prevButton.addEventListener('click', () => {
+            const index = getProblemBuilderItems().indexOf(template);
+            if (index > 0) {
+                showProblemBuilderItem(index - 1);
+            }
+        });
+    }
+
+    const nextButton = template.querySelector('[data-nav="next"]');
+    if (nextButton) {
+        nextButton.addEventListener('click', () => {
+            const items = getProblemBuilderItems();
+            const index = items.indexOf(template);
+            if (index >= 0 && index < items.length - 1) {
+                showProblemBuilderItem(index + 1);
+            }
+        });
+    }
+
     updateProblemItemTypeFields(template);
+    refreshProblemBuilder(getProblemBuilderItems().indexOf(template));
     return template;
 }
 
@@ -2330,17 +2419,17 @@ function populateProblemItem(template, problem) {
     if (problem.type === 'multiple_choice') {
         const choices = Array.isArray(problem.choices) ? problem.choices : [];
 
-        while (template.querySelectorAll('.choice-row').length < choices.length) {
+        while (template.querySelectorAll('.problemtakechoice').length < choices.length) {
             addChoiceRow(template);
         }
-        while (template.querySelectorAll('.choice-row').length > choices.length && template.querySelectorAll('.choice-row').length > MIN_CHOICES) {
+        while (template.querySelectorAll('.problemtakechoice').length > choices.length && template.querySelectorAll('.problemtakechoice').length > MIN_CHOICES) {
             removeChoiceRow(template);
         }
 
-        const rows = Array.from(template.querySelectorAll('.choice-row'));
+        const rows = Array.from(template.querySelectorAll('.problemtakechoice'));
         rows.forEach((row, index) => {
             const input = row.querySelector('.choice-input');
-            const radio = row.querySelector('.choice-correct-radio');
+            const radio = row.querySelector('.problemtakechoiceinput');
             const choiceText = choices[index] || '';
 
             if (input) {

@@ -10,9 +10,11 @@ async function loadProblemSetDetail() {
 
     if (!problemSetId) {
         container.innerHTML = `
-            <a class="topicdetailback" href="/problems/">Back to Problem Sets</a>
-            <h1 class="topicdetailtitle">Problem set not found</h1>
-            <p class="topicdetailtext">No problem set ID was provided.</p>
+            <div class="problemsetdetailleft">
+                <a class="topicdetailback" href="/problems/">Back to Problem Sets</a>
+                <h1 class="topicdetailtitle">Problem set not found</h1>
+                <p class="topicdetailtext">No problem set ID was provided.</p>
+            </div>
         `;
         return;
     }
@@ -22,9 +24,11 @@ async function loadProblemSetDetail() {
 
         if (!response.ok) {
             container.innerHTML = `
-                <a class="topicdetailback" href="/problems/">Back to Problem Sets</a>
-                <h1 class="topicdetailtitle">Problem set not found</h1>
-                <p class="topicdetailtext">We couldn't find that problem set.</p>
+                <div class="problemsetdetailleft">
+                    <a class="topicdetailback" href="/problems/">Back to Problem Sets</a>
+                    <h1 class="topicdetailtitle">Problem set not found</h1>
+                    <p class="topicdetailtext">We couldn't find that problem set.</p>
+                </div>
             `;
             return;
         }
@@ -35,25 +39,42 @@ async function loadProblemSetDetail() {
     } catch (error) {
         console.error("Failed to load problem set:", error);
         container.innerHTML = `
-            <a class="topicdetailback" href="/problems/">Back to Problem Sets</a>
-            <h1 class="topicdetailtitle">Problem set unavailable</h1>
-            <p class="topicdetailtext">Unable to load this problem set right now.</p>
+            <div class="problemsetdetailleft">
+                <a class="topicdetailback" href="/problems/">Back to Problem Sets</a>
+                <h1 class="topicdetailtitle">Problem set unavailable</h1>
+                <p class="topicdetailtext">Unable to load this problem set right now.</p>
+            </div>
         `;
     }
 }
 
 function renderProblemSetDetail(container, problemSetId, problemSet, problems) {
+    const tocHtml = problems.length
+        ? `
+            <div class="problemtoc">
+                ${problems.map((problem, index) => `
+                    <button type="button" class="problemtocitem" data-problem-index="${index}">${index + 1}</button>
+                `).join('')}
+            </div>
+        `
+        : '';
+
     const problemsHtml = problems.length
-        ? problems.map((problem, index) => renderProblem(problem, index)).join('')
+        ? problems.map((problem, index) => renderProblem(problem, index, problems.length)).join('')
         : '<p class="topicdetailtext">This problem set has no problems yet.</p>';
 
     container.innerHTML = `
-        <a class="topicdetailback" href="/problems/">Back to Problem Sets</a>
-        <h1 class="topicdetailtitle">${escapeHtml(problemSet.name)}</h1>
-        <button type="button" id="edit-problem-set-button" class="topicdetailback hidden">Edit this problem set</button>
-        <div class="topicdetailtext">${renderMarkdown(problemSet.description, "No description available yet.")}</div>
-        ${problemSet.calculatorAllowed ? '<p class="tag">Calculator approved</p>' : ''}
-        ${problemsHtml}
+        <div class="problemsetdetailleft">
+            <a class="topicdetailback" href="/problems/">Back to Problem Sets</a>
+            <h1 class="topicdetailtitle">${escapeHtml(problemSet.name)}</h1>
+            <button type="button" id="edit-problem-set-button" class="topicdetailback hidden">Edit this problem set</button>
+            <div class="topicdetailtext">${renderMarkdown(problemSet.description, "No description available yet.")}</div>
+            ${problemSet.calculatorAllowed ? '<p class="tag">Calculator approved</p>' : ''}
+            ${tocHtml}
+        </div>
+        <div class="problemsetdetailright">
+            ${problemsHtml}
+        </div>
     `;
 
     problems.forEach((problem) => {
@@ -64,6 +85,57 @@ function renderProblemSetDetail(container, problemSetId, problemSet, problems) {
                 checkSingleProblem(problemSetId, problem);
             });
         }
+    });
+
+    initProblemToc(problems);
+    initProblemNav(problems);
+}
+
+let currentProblemIndex = 0;
+
+function showProblem(problems, activeIndex) {
+    currentProblemIndex = activeIndex;
+
+    problems.forEach((problem, index) => {
+        const form = document.getElementById(`problemtakeform-${problem.id}`);
+        if (form) {
+            form.classList.toggle("hidden", index !== activeIndex);
+        }
+    });
+
+    document.querySelectorAll(".problemtocitem").forEach((button) => {
+        const index = Number(button.dataset.problemIndex);
+        button.classList.toggle("problemtocitemactive", index === activeIndex);
+    });
+}
+
+function initProblemToc(problems) {
+    document.querySelectorAll(".problemtocitem").forEach((button) => {
+        button.addEventListener("click", () => {
+            showProblem(problems, Number(button.dataset.problemIndex));
+        });
+    });
+
+    if (problems.length) {
+        showProblem(problems, 0);
+    }
+}
+
+function initProblemNav(problems) {
+    document.querySelectorAll('[data-nav="prev"]').forEach((button) => {
+        button.addEventListener("click", () => {
+            if (currentProblemIndex > 0) {
+                showProblem(problems, currentProblemIndex - 1);
+            }
+        });
+    });
+
+    document.querySelectorAll('[data-nav="next"]').forEach((button) => {
+        button.addEventListener("click", () => {
+            if (currentProblemIndex < problems.length - 1) {
+                showProblem(problems, currentProblemIndex + 1);
+            }
+        });
     });
 }
 
@@ -107,7 +179,7 @@ async function initProblemSetEditButton(problemSetId) {
     });
 }
 
-function renderProblem(problem, index) {
+function renderProblem(problem, index, total) {
     const number = index + 1;
     const choices = Array.isArray(problem.choices) ? problem.choices : [];
 
@@ -127,6 +199,10 @@ function renderProblem(problem, index) {
             <div class="problemtakeinput">${inputHtml}</div>
             <button type="submit" class="authsubmit">Check</button>
             <p class="problemtakefeedback"></p>
+            <div class="problemtakenav">
+                ${index === 0 ? "" : '<button type="button" class="topicdetailback" data-nav="prev">Previous problem</button>'}
+                ${index === total - 1 ? "" : '<button type="button" class="topicdetailback" data-nav="next">Next problem</button>'}
+            </div>
         </form>
     `;
 }

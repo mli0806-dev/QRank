@@ -11,11 +11,12 @@
 <body>
     <nav class="headerbox"></nav>
     <main>
-        <div class="topicdetail">
-            <p class="aboutustitle" id="contribute-page-heading">Contribute to QRank</p>
-            <p class="aboutustext" id="contribute-page-subtext">Submit a suggested problem set below and it will be added to our review queue.</p>
-            <div class="aboutuspanel">
-                <form id="suggest-problem-set-form" class="suggestionform">
+        <form id="suggest-problem-set-form" class="suggestionform problemsetdetailpage">
+            <div class="problemsetdetailleft">
+                <p class="aboutustitle" id="contribute-page-heading">Contribute to QRank</p>
+                <p class="aboutustext" id="contribute-page-subtext">Submit a suggested problem set below and it will be added to our review queue.</p>
+
+                <div id="suggest-fields">
                     <label class="aboutustitle" for="suggest-name">Problem set name</label>
                     <input id="suggest-name" class="inputs" type="text" placeholder="Example: Algebra II Review" required>
 
@@ -34,7 +35,7 @@
                         <option value="" selected>No specific unit</option>
                     </select>
 
-                    <label class="aboutustitle" for="suggest-tags">Tags (optional -- the subtopic's course tag is added automatically)</label>
+                    <label class="aboutustitle" for="suggest-tags">Tags</label>
                     <select id="suggest-tags" class="inputs" multiple size="6"></select>
 
                     <label class="profiletoggle" for="suggest-calculator-allowed">
@@ -42,7 +43,7 @@
                         <span>Calculator approved</span>
                     </label>
 
-                    <label class="aboutustitle" for="suggest-description">Description (Markdown supported)</label>
+                    <label class="aboutustitle" for="suggest-description">Description</label>
                     <div class="markdowntoolbar">
                         <button class="markdownbutton" type="button" data-markdown="bold">Bold</button>
                         <button class="markdownbutton" type="button" data-markdown="italic">Italic</button>
@@ -51,20 +52,23 @@
                         <button class="markdownbutton desmostoolbutton hidden" type="button" data-desmos-target="suggest-description">Insert Desmos graph</button>
                     </div>
                     <textarea id="suggest-description" class="inputs" rows="4" placeholder="Brief description of the set"></textarea>
+                </div>
 
-                    <div class="problem-builder">
-                        <div class="problem-builder-header">
-                            <span class="aboutustitle">Problems</span>
-                            <button type="button" id="add-problem-button" class="authsubmit">Add problem</button>
-                        </div>
-                        <div id="problem-items" class="problem-items"></div>
-                    </div>
+                <div id="problem-builder-toc" class="problemtoc"></div>
 
-                    <button type="submit" class="authsubmit">Submit suggestion</button>
-                </form>
+                <button type="submit" class="authsubmit">Submit suggestion</button>
                 <div id="suggestion-status" class="problemsetstatus" aria-live="polite"></div>
             </div>
-        </div>
+            <div class="problemsetdetailright">
+                <div class="problem-builder">
+                    <div class="problem-builder-header">
+                        <span class="aboutustitle">Problems</span>
+                        <button type="button" id="add-problem-button" class="authsubmit">Add problem</button>
+                    </div>
+                    <div id="problem-items" class="problem-items"></div>
+                </div>
+            </div>
+        </form>
     </main>
     <footer class="sitefooter"></footer>
     <script src="/script.js"></script>

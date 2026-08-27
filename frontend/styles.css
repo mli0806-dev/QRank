@@ -11,6 +11,7 @@ body {
 
 main {
   flex: 1;
+  min-height: 0;
 }
 
 a, button {
@@ -352,6 +353,14 @@ main.topicbg {
   margin: 0;
 }
 
+.topicdetailtext p:first-child {
+  margin-top: 0;
+}
+
+.topicdetailtext p:last-child {
+  margin-bottom: 0;
+}
+
 .topicdetailsection {
   display: flex;
   flex-direction: column;
@@ -521,7 +530,35 @@ main.topicbg {
 .problemsetresults {
   max-width: 800px;
   margin: 40px auto 0;
-  max-height: 1000px;
+  max-height: 500px;
+  overflow-y: auto;
+}
+
+.problemsetpage {
+  display: flex;
+  flex: none;
+  flex-direction: column;
+  gap: var(--space-3);
+  height: calc(100vh - 160px);
+  overflow: hidden;
+  width: 100%;
+  max-width: 800px;
+  margin: 0 auto;
+  padding: 40px 0;
+  box-sizing: border-box;
+}
+
+.problemsetpage .rankingsearchpanel {
+  margin: 0;
+  flex-shrink: 0;
+}
+
+.problemsetpage .problemsetresults {
+  margin: 0;
+  max-height: none;
+  flex: 1;
+  min-height: 0;
+  box-sizing: border-box;
 }
 
 .problemsetgrid {
@@ -536,7 +573,7 @@ main.topicbg {
   gap: var(--space-4);
 }
 
-.problemsetcard, .suggestioncard, .problemtakeitem, .problem-item {
+.problemsetcard, .suggestioncard, .problemtakeitem {
   background-color: var(--card);
   border: var(--border-default);
   display: flex;
@@ -570,9 +607,24 @@ main.topicbg {
 }
 
 .problemtakeitem {
-  padding: var(--space-3);
-  margin-top: var(--space-3);
+  padding: var(--space-4);
   gap: var(--space-2);
+  height: 100%;
+  overflow-y: auto;
+  box-sizing: border-box;
+  scrollbar-color: var(--border) transparent;
+}
+
+.problemtakeitem::-webkit-scrollbar {
+  width: 10px;
+}
+
+.problemtakeitem::-webkit-scrollbar-thumb {
+  background-color: var(--border);
+}
+
+.problemtakeitem::-webkit-scrollbar-track {
+  background-color: transparent;
 }
 
 .problemtakeitem.problemtakecorrect {
@@ -643,7 +695,7 @@ main.topicbg {
   outline-offset: 2px;
 }
 
-.problemtakechoiceinput {
+.problemtakechoice .problemtakechoiceinput {
   position: absolute;
   width: 0;
   height: 0;
@@ -651,22 +703,102 @@ main.topicbg {
   pointer-events: none;
 }
 
-.problemtakechoiceletter {
+.problemtakechoice .problemtakechoiceletter, .problemtocitem {
   display: flex;
   align-items: center;
   justify-content: center;
   width: 32px;
   height: 32px;
   flex-shrink: 0;
+  background-color: var(--card);
   border: var(--border-default);
   font-size: var(--fs-2);
   font-weight: 500;
 }
 
-.problemtakechoice:has(.problemtakechoiceinput:checked) .problemtakechoiceletter {
+.problemtakechoice:has(.problemtakechoiceinput:checked) .problemtakechoiceletter, .problemtocitemactive {
   background-color: var(--text);
   color: var(--bg);
   border-color: var(--text);
+}
+
+.problemtoc {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+  margin-top: var(--space-3);
+}
+
+.problemsetdetailpage {
+  display: flex;
+  height: calc(100vh - 160px);
+  overflow: hidden;
+}
+
+.problemsetdetailleft {
+  width: 33.333%;
+  padding: 50px;
+  box-sizing: border-box;
+  overflow-y: auto;
+  scrollbar-color: var(--border) transparent;
+}
+
+.problemsetdetailleft::-webkit-scrollbar {
+  width: 10px;
+}
+
+.problemsetdetailleft::-webkit-scrollbar-thumb {
+  background-color: var(--border);
+}
+
+.problemsetdetailleft::-webkit-scrollbar-track {
+  background-color: transparent;
+}
+
+.problemsetdetailright {
+  width: 66.667%;
+  padding: 50px;
+  box-sizing: border-box;
+}
+
+.suggestionform.problemsetdetailpage {
+  flex-direction: row;
+  gap: 0;
+}
+
+.suggestionform .problemsetdetailleft {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+#suggest-fields {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.suggestionform .problemtoc {
+  margin-top: 0;
+}
+
+.suggestionform .problemsetdetailright {
+  display: flex;
+  flex-direction: column;
+}
+
+.suggestionform .problemsetdetailright.hidden {
+  display: none;
+}
+
+.suggestionform .problem-builder {
+  flex: 1;
+  min-height: 0;
+}
+
+.suggestionform .problem-items {
+  flex: 1;
+  min-height: 0;
 }
 
 .problemtakefeedback {
@@ -677,6 +809,19 @@ main.topicbg {
 
 .problemtakefeedback:empty {
   display: none;
+}
+
+.problemtakenav {
+  display: flex;
+  margin-top: auto;
+}
+
+.problemtakenav .topicdetailback {
+  margin-bottom: 0;
+}
+
+.problemtakenav [data-nav="next"] {
+  margin-left: auto;
 }
 
 .problemsettags {
@@ -868,6 +1013,10 @@ main.topicbg {
   margin-top: 0;
 }
 
+.resetpanel .topicdetailtext {
+  margin-bottom: var(--space-3);
+}
+
 .resetform {
   display: flex;
   flex-direction: column;
@@ -892,6 +1041,10 @@ main.topicbg {
   margin-top: var(--space-1);
   font-size: var(--fs-1);
   color: var(--textsec);
+}
+
+.resetstatus:empty {
+  margin-top: 0;
 }
 
 .hidden {
@@ -993,8 +1146,8 @@ main.topicbg {
   justify-content: center;
   align-items: stretch;
   flex-wrap: wrap;
-  padding: 50px;
-  padding-top: 0;
+  padding-left: 50px;
+  padding-right: 50px;
 }
 
 .calendarbox {
@@ -1180,7 +1333,7 @@ main.topicbg {
 
 .authsubmit {
   background-color: var(--card);
-  font-size: var(--fs-3);
+  font-size: var(--fs-2);
   color: var(--text);
   font-family: inherit;
   width: fit-content;
@@ -1333,6 +1486,11 @@ main.topicbg {
   padding: 8px 12px;
 }
 
+.inputs:focus-visible {
+  outline: 2px solid var(--text);
+  outline-offset: 2px;
+}
+
 .inputs.profilebio {
   font-size: var(--fs-2);
 }
@@ -1359,6 +1517,10 @@ main.topicbg {
 
 .aboutustitle {
   font-size: var(--fs-3);
+}
+
+#contribute-page-heading {
+  margin: 0;
 }
 
 .sectionheading {
@@ -1401,9 +1563,8 @@ main.topicbg {
   gap: var(--space-3);
 }
 
-.problem-item {
-  padding: var(--space-2);
-  gap: var(--space-2);
+.problem-items .problemtakeitem {
+  margin-top: 0;
 }
 
 .problem-item-header {
@@ -1416,34 +1577,30 @@ main.topicbg {
 .problem-choice-list {
   display: flex;
   flex-direction: column;
-  gap: var(--space-1);
+  gap: var(--space-2);
 }
 
-.choice-row {
-  display: flex;
-  align-items: center;
-  gap: var(--space-1);
-}
-
-.choice-letter {
-  display: flex;
-  align-items: center;
-  gap: 6px;
+.problem-item-header .aboutustitle {
   font-weight: 500;
-  flex-shrink: 0;
 }
 
-.choice-letter-label {
-  width: 18px;
+.problem-item label.aboutustitle {
+  font-size: var(--fs-2);
+  font-weight: 500;
 }
 
-.choice-row .choice-input {
+.problem-prompt {
+  font-size: var(--fs-2);
+}
+
+.choice-input {
   flex: 1;
+  font-size: var(--fs-2);
 }
 
 .choice-buttons {
   display: flex;
-  gap: var(--space-1);
+  gap: var(--space-2);
 }
 
 .choice-buttons button {
@@ -1593,7 +1750,6 @@ main.topicbg {
   .calendarlayout {
     padding-left: var(--space-3);
     padding-right: var(--space-3);
-    padding-bottom: var(--space-3);
   }
 
   .body {
