@@ -77,6 +77,8 @@ function renderProblemSetDetail(container, problemSetId, problemSet, problems) {
         </div>
     `;
 
+    renderMathIn(container);
+
     problems.forEach((problem) => {
         const form = document.getElementById(`problemtakeform-${problem.id}`);
         if (form) {
@@ -241,11 +243,13 @@ async function checkSingleProblem(problemSetId, problem) {
             return;
         }
 
-        const { results } = await response.json();
+        const { results, pointsAwarded } = await response.json();
         const isCorrect = Boolean(results[problem.id]);
 
         if (feedback) {
-            feedback.textContent = isCorrect ? "Correct" : "Incorrect";
+            feedback.textContent = isCorrect && pointsAwarded
+                ? `Correct (+${pointsAwarded} QScore)`
+                : (isCorrect ? "Correct" : "Incorrect");
         }
         if (item) {
             item.classList.toggle("problemtakecorrect", isCorrect);

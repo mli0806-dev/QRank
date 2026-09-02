@@ -154,8 +154,9 @@ h2 {
 
 .intro {
   text-align: center;
-  margin-top: var(--space-3);
+  margin-top: var(--space-4);
   font-size: var(--fs-2);
+  margin-bottom: 0;
 }
 
 .firsttimelink {
@@ -169,6 +170,7 @@ h2 {
   max-width: 800px;
   margin-left: auto;
   margin-right: auto;
+  margin-bottom: 0;
 }
 
 .anchorboxes {
@@ -445,7 +447,7 @@ main.topicbg {
 }
 
 .network-node:focus-visible {
-  outline: 2px solid var(--focus-ring-map);
+  outline: 1px solid var(--focus-ring-map);
   outline-offset: 2px;
 }
 
@@ -1009,6 +1011,57 @@ main.topicbg {
   border-top: 1px solid var(--border);
 }
 
+.problempreviewoverlay {
+  position: fixed;
+  inset: 0;
+  background: var(--scrim);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 2000;
+  padding: var(--space-3);
+  box-sizing: border-box;
+}
+
+.problempreviewmodal {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  max-width: 700px;
+  max-height: 90vh;
+  background-color: var(--card);
+  border: var(--border-default);
+  box-sizing: border-box;
+}
+
+.problempreviewheader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border);
+}
+
+.problempreviewclose {
+  border: none;
+  background: none;
+  color: var(--text);
+  font-size: var(--fs-3);
+  line-height: 1;
+  cursor: pointer;
+  padding: 0 4px;
+}
+
+.problempreviewcontent {
+  padding: var(--space-3);
+  overflow-y: auto;
+}
+
+.problempreviewcontent .problemtakeitem {
+  height: auto;
+  border: none;
+}
+
 .resetpanel {
   margin-top: 0;
 }
@@ -1538,7 +1591,7 @@ main.topicbg {
 .problem-builder {
   display: flex;
   flex-direction: column;
-  gap: var(--space-1);
+  gap: var(--space-3);
 }
 
 .inputs.problem-type {
@@ -1572,6 +1625,21 @@ main.topicbg {
   justify-content: space-between;
   align-items: center;
   gap: var(--space-2);
+}
+
+.problem-item-header-actions {
+  display: flex;
+  gap: var(--space-1);
+}
+
+.problem-points-field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.problem-points-field .problem-points {
+  width: 100px;
 }
 
 .problem-choice-list {

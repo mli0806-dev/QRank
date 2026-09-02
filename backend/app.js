@@ -209,6 +209,7 @@ app.get("/api/desmos-config", (req, res) => {
     });
 });
 
+
 app.get("/api/auth/me", async (req, res) => {
     try {
         const user = await auth.getSessionUser(req);
@@ -272,7 +273,7 @@ app.get("/api/problem-sets/count", async (req, res) => {
 
 app.post("/api/problem-set-suggestions", publicWriteLimiter, auth.requireAuth, async (req, res) => {
     try {
-        const { name, description, topic, subtopic, unit, tags, problems, calculatorAllowed } = req.body || {};
+        const { name, description, topic, subtopic, unit, tags, problems, calculatorAllowed, assessmentEnabled } = req.body || {};
 
         if (!name || !topic || !subtopic || !problems) {
             return res.status(400).json({ message: "Name, topic, subtopic, and problems are required." });
@@ -291,10 +292,11 @@ app.post("/api/problem-set-suggestions", publicWriteLimiter, auth.requireAuth, a
         const cleanProblems = String(problems).trim();
         const cleanSubmitter = req.user.username;
         const cleanCalculatorAllowed = calculatorAllowed ? 1 : 0;
+        const cleanAssessmentEnabled = assessmentEnabled && req.user.role === "admin" ? 1 : 0;
 
         const [result] = await db.query(
-            "INSERT INTO problem_set_suggestions (name, description, topic, subtopic, unit, tags, problems, submitter, calculator_allowed) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
-            [cleanName, cleanDescription, cleanTopic, cleanSubtopic, cleanUnit, cleanTags, cleanProblems, cleanSubmitter, cleanCalculatorAllowed]
+            "INSERT INTO problem_set_suggestions (name, description, topic, subtopic, unit, tags, problems, submitter, calculator_allowed, assessment_enabled) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            [cleanName, cleanDescription, cleanTopic, cleanSubtopic, cleanUnit, cleanTags, cleanProblems, cleanSubmitter, cleanCalculatorAllowed, cleanAssessmentEnabled]
         );
 
         res.status(201).json({
@@ -329,11 +331,12 @@ function mapSuggestionRow(row) {
         createdAt: row.created_at,
         createdProblemSetId: row.created_problem_set_id,
         editingProblemSetId: row.editing_problem_set_id,
-        calculatorAllowed: Boolean(row.calculator_allowed)
+        calculatorAllowed: Boolean(row.calculator_allowed),
+        assessmentEnabled: Boolean(row.assessment_enabled)
     };
 }
 
-const SUGGESTION_COLUMNS = "id, name, description, topic, subtopic, unit, tags, problems, submitter, status, created_at, created_problem_set_id, editing_problem_set_id, calculator_allowed";
+const SUGGESTION_COLUMNS = "id, name, description, topic, subtopic, unit, tags, problems, submitter, status, created_at, created_problem_set_id, editing_problem_set_id, calculator_allowed, assessment_enabled";
 
 app.get("/api/admin/problem-set-suggestions", auth.requireAdmin, async (req, res) => {
     try {
@@ -368,7 +371,7 @@ app.get("/api/admin/problem-set-suggestions/:id", auth.requireAdmin, async (req,
 
 app.put("/api/admin/problem-set-suggestions/:id", auth.requireAdmin, async (req, res) => {
     try {
-        const { name, description, topic, subtopic, unit, tags, problems, calculatorAllowed } = req.body || {};
+        const { name, description, topic, subtopic, unit, tags, problems, calculatorAllowed, assessmentEnabled } = req.body || {};
 
         if (!name || !topic || !subtopic || !problems) {
             return res.status(400).json({ message: "Name, topic, subtopic, and problems are required." });
@@ -381,10 +384,11 @@ app.put("/api/admin/problem-set-suggestions/:id", auth.requireAdmin, async (req,
             .join(',');
         const cleanUnit = unit ? String(unit).trim() : null;
         const cleanCalculatorAllowed = calculatorAllowed ? 1 : 0;
+        const cleanAssessmentEnabled = assessmentEnabled ? 1 : 0;
 
         const [result] = await db.query(
-            "UPDATE problem_set_suggestions SET name = ?, description = ?, topic = ?, subtopic = ?, unit = ?, tags = ?, problems = ?, calculator_allowed = ? WHERE id = ?",
-            [String(name).trim(), String(description || "").trim(), String(topic).trim(), String(subtopic).trim(), cleanUnit, cleanTags, String(problems).trim(), cleanCalculatorAllowed, req.params.id]
+            "UPDATE problem_set_suggestions SET name = ?, description = ?, topic = ?, subtopic = ?, unit = ?, tags = ?, problems = ?, calculator_allowed = ?, assessment_enabled = ? WHERE id = ?",
+            [String(name).trim(), String(description || "").trim(), String(topic).trim(), String(subtopic).trim(), cleanUnit, cleanTags, String(problems).trim(), cleanCalculatorAllowed, cleanAssessmentEnabled, req.params.id]
         );
 
         if (result.affectedRows === 0) {
@@ -401,7 +405,7 @@ app.put("/api/admin/problem-set-suggestions/:id", auth.requireAdmin, async (req,
 app.post("/api/admin/problem-sets/:id/edit", auth.requireAdmin, async (req, res) => {
     try {
         const [problemSetRows] = await db.query(
-            "SELECT id, name, description, topic, subtopic, unit, tags, calculator_allowed FROM problem_sets WHERE id = ? LIMIT 1",
+            "SELECT id, name, description, topic, subtopic, unit, tags, calculator_allowed, assessment_enabled FROM problem_sets WHERE id = ? LIMIT 1",
             [req.params.id]
         );
 
@@ -412,7 +416,7 @@ app.post("/api/admin/problem-sets/:id/edit", auth.requireAdmin, async (req, res)
         const problemSet = problemSetRows[0];
 
         const [problemRows] = await db.query(
-            "SELECT type, prompt, choices, answer FROM problems WHERE problem_set_id = ? ORDER BY position ASC, id ASC",
+            "SELECT type, prompt, choices, answer, points FROM problems WHERE problem_set_id = ? ORDER BY position ASC, id ASC",
             [problemSet.id]
         );
 
@@ -420,12 +424,13 @@ app.post("/api/admin/problem-sets/:id/edit", auth.requireAdmin, async (req, res)
             type: row.type,
             prompt: row.prompt,
             choices: row.choices || undefined,
-            answer: row.answer
+            answer: row.answer,
+            points: row.points
         })));
 
         const [result] = await db.query(
-            "INSERT INTO problem_set_suggestions (name, description, topic, subtopic, unit, tags, problems, submitter, status, editing_problem_set_id, calculator_allowed) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'pending', ?, ?)",
-            [problemSet.name, problemSet.description, problemSet.topic, problemSet.subtopic, problemSet.unit, problemSet.tags, problemsJson, req.user.username, problemSet.id, problemSet.calculator_allowed]
+            "INSERT INTO problem_set_suggestions (name, description, topic, subtopic, unit, tags, problems, submitter, status, editing_problem_set_id, calculator_allowed, assessment_enabled) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'pending', ?, ?, ?)",
+            [problemSet.name, problemSet.description, problemSet.topic, problemSet.subtopic, problemSet.unit, problemSet.tags, problemsJson, req.user.username, problemSet.id, problemSet.calculator_allowed, problemSet.assessment_enabled]
         );
 
         res.status(201).json({ suggestionId: result.insertId });
@@ -450,7 +455,7 @@ app.patch("/api/admin/problem-set-suggestions/:id", auth.requireAdmin, async (re
         await connection.beginTransaction();
 
         const [suggestionRows] = await connection.query(
-            "SELECT id, name, description, topic, subtopic, unit, tags, problems, editing_problem_set_id, calculator_allowed FROM problem_set_suggestions WHERE id = ? LIMIT 1 FOR UPDATE",
+            "SELECT id, name, description, topic, subtopic, unit, tags, problems, editing_problem_set_id, calculator_allowed, assessment_enabled FROM problem_set_suggestions WHERE id = ? LIMIT 1 FOR UPDATE",
             [id]
         );
 
@@ -495,8 +500,8 @@ app.patch("/api/admin/problem-set-suggestions/:id", auth.requireAdmin, async (re
 
             if (publishedProblemSetId) {
                 const [updateResult] = await connection.query(
-                    "UPDATE problem_sets SET name = ?, description = ?, topic = ?, subtopic = ?, unit = ?, tags = ?, calculator_allowed = ? WHERE id = ?",
-                    [suggestion.name, suggestion.description, suggestion.topic, suggestion.subtopic, suggestion.unit, finalTags, suggestion.calculator_allowed, publishedProblemSetId]
+                    "UPDATE problem_sets SET name = ?, description = ?, topic = ?, subtopic = ?, unit = ?, tags = ?, calculator_allowed = ?, assessment_enabled = ? WHERE id = ?",
+                    [suggestion.name, suggestion.description, suggestion.topic, suggestion.subtopic, suggestion.unit, finalTags, suggestion.calculator_allowed, suggestion.assessment_enabled, publishedProblemSetId]
                 );
 
                 if (updateResult.affectedRows === 0) {
@@ -507,8 +512,8 @@ app.patch("/api/admin/problem-set-suggestions/:id", auth.requireAdmin, async (re
                 await connection.query("DELETE FROM problems WHERE problem_set_id = ?", [publishedProblemSetId]);
             } else {
                 const [problemSetResult] = await connection.query(
-                    "INSERT INTO problem_sets (name, description, topic, subtopic, unit, tags, calculator_allowed) VALUES (?, ?, ?, ?, ?, ?, ?)",
-                    [suggestion.name, suggestion.description, suggestion.topic, suggestion.subtopic, suggestion.unit, finalTags, suggestion.calculator_allowed]
+                    "INSERT INTO problem_sets (name, description, topic, subtopic, unit, tags, calculator_allowed, assessment_enabled) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+                    [suggestion.name, suggestion.description, suggestion.topic, suggestion.subtopic, suggestion.unit, finalTags, suggestion.calculator_allowed, suggestion.assessment_enabled]
                 );
 
                 publishedProblemSetId = problemSetResult.insertId;
@@ -520,10 +525,11 @@ app.patch("/api/admin/problem-set-suggestions/:id", auth.requireAdmin, async (re
                 const choices = type === "multiple_choice" && Array.isArray(problem.choices)
                     ? JSON.stringify(problem.choices)
                     : null;
+                const points = Number.isFinite(Number(problem.points)) ? Math.max(0, Math.trunc(Number(problem.points))) : 0;
 
                 await connection.query(
-                    "INSERT INTO problems (problem_set_id, position, type, prompt, choices, answer) VALUES (?, ?, ?, ?, ?, ?)",
-                    [publishedProblemSetId, position, type, String(problem.prompt), choices, String(problem.answer)]
+                    "INSERT INTO problems (problem_set_id, position, type, prompt, choices, answer, points) VALUES (?, ?, ?, ?, ?, ?, ?)",
+                    [publishedProblemSetId, position, type, String(problem.prompt), choices, String(problem.answer), points]
                 );
             }
 
@@ -680,7 +686,7 @@ app.get("/api/problem-sets/:id", async (req, res) => {
         }
 
         const [problemRows] = await db.query(
-            "SELECT id, position, type, prompt, choices FROM problems WHERE problem_set_id = ? ORDER BY position ASC, id ASC",
+            "SELECT id, position, type, prompt, choices, points FROM problems WHERE problem_set_id = ? ORDER BY position ASC, id ASC",
             [id]
         );
 
@@ -696,7 +702,8 @@ app.get("/api/problem-sets/:id", async (req, res) => {
                 id: row.id,
                 type: row.type,
                 prompt: row.prompt,
-                choices: row.choices
+                choices: row.choices,
+                points: row.points
             }))
         });
     } catch (err) {
@@ -710,8 +717,19 @@ app.post("/api/problem-sets/:id/check", publicWriteLimiter, async (req, res) => 
         const { id } = req.params;
         const submitted = (req.body && req.body.answers) || {};
 
+        const [problemSetRows] = await db.query(
+            "SELECT assessment_enabled FROM problem_sets WHERE id = ? LIMIT 1",
+            [id]
+        );
+
+        if (problemSetRows.length === 0) {
+            return res.status(404).json({ message: "Problem set not found or has no problems." });
+        }
+
+        const assessmentEnabled = Boolean(problemSetRows[0].assessment_enabled);
+
         const [problemRows] = await db.query(
-            "SELECT id, type, answer FROM problems WHERE problem_set_id = ?",
+            "SELECT id, type, answer, points FROM problems WHERE problem_set_id = ?",
             [id]
         );
 
@@ -721,6 +739,7 @@ app.post("/api/problem-sets/:id/check", publicWriteLimiter, async (req, res) => 
 
         const results = {};
         let correctCount = 0;
+        const correctProblems = [];
 
         for (const problem of problemRows) {
             const submittedAnswer = String(submitted[problem.id] ?? "").trim();
@@ -732,13 +751,36 @@ app.post("/api/problem-sets/:id/check", publicWriteLimiter, async (req, res) => 
             results[problem.id] = isCorrect;
             if (isCorrect) {
                 correctCount += 1;
+                correctProblems.push(problem);
+            }
+        }
+
+        let pointsAwarded = 0;
+        const viewer = await auth.getSessionUser(req);
+
+        if (viewer && correctProblems.length > 0 && assessmentEnabled) {
+            for (const problem of correctProblems) {
+                if (!problem.points) {
+                    continue;
+                }
+
+                const [completionResult] = await db.query(
+                    "INSERT IGNORE INTO problem_completions (user_id, problem_id) VALUES (?, ?)",
+                    [viewer.id, problem.id]
+                );
+
+                if (completionResult.affectedRows === 1) {
+                    await db.query("UPDATE users SET qscore = qscore + ? WHERE id = ?", [problem.points, viewer.id]);
+                    pointsAwarded += problem.points;
+                }
             }
         }
 
         res.json({
             results,
             correctCount,
-            total: problemRows.length
+            total: problemRows.length,
+            pointsAwarded
         });
     } catch (err) {
         console.error(err);
@@ -849,7 +891,7 @@ app.get("/api/users/:username", async (req, res) => {
         const { username } = req.params;
         const viewer = await auth.getSessionUser(req);
         const [rows] = await db.query(
-            "SELECT id, username, email, public_email, bio FROM users WHERE username = ? LIMIT 1",
+            "SELECT id, username, email, public_email, bio, qscore FROM users WHERE username = ? LIMIT 1",
             [username]
         );
 
@@ -866,7 +908,8 @@ app.get("/api/users/:username", async (req, res) => {
                 username: user.username,
                 bio: user.bio || "",
                 publicEmail: Boolean(user.public_email),
-                email: isOwner || Boolean(user.public_email) ? user.email : null
+                email: isOwner || Boolean(user.public_email) ? user.email : null,
+                qscore: user.qscore
             }
         });
     } catch (err) {
@@ -893,7 +936,7 @@ app.put("/api/users/:username", auth.requireAuth, async (req, res) => {
         );
 
         const [rows] = await db.query(
-            "SELECT id, username, email, public_email, bio FROM users WHERE username = ? LIMIT 1",
+            "SELECT id, username, email, public_email, bio, qscore FROM users WHERE username = ? LIMIT 1",
             [username]
         );
 
@@ -906,7 +949,8 @@ app.put("/api/users/:username", auth.requireAuth, async (req, res) => {
                 username: user.username,
                 bio: user.bio || "",
                 publicEmail: Boolean(user.public_email),
-                email: user.email
+                email: user.email,
+                qscore: user.qscore
             }
         });
     } catch (err) {
@@ -1169,10 +1213,11 @@ app.post("/api/competitions", auth.requireVerified, async (req, res) => {
             const choices = type === "multiple_choice" && Array.isArray(problem.choices)
                 ? JSON.stringify(problem.choices)
                 : null;
+            const points = Number.isFinite(Number(problem.points)) ? Math.max(0, Math.trunc(Number(problem.points))) : 0;
 
             await connection.query(
-                "INSERT INTO problems (problem_set_id, position, type, prompt, choices, answer) VALUES (?, ?, ?, ?, ?, ?)",
-                [problemSetId, position, type, String(problem.prompt), choices, String(problem.answer)]
+                "INSERT INTO problems (problem_set_id, position, type, prompt, choices, answer, points) VALUES (?, ?, ?, ?, ?, ?, ?)",
+                [problemSetId, position, type, String(problem.prompt), choices, String(problem.answer), points]
             );
         }
 

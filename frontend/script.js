@@ -223,6 +223,22 @@ function renderMarkdown(value, emptyFallback = "No bio yet.") {
     return DOMPurify.sanitize(marked.parse(text, { breaks: true }));
 }
 
+function renderMathIn(element) {
+    if (!element || typeof renderMathInElement === 'undefined') {
+        return;
+    }
+
+    renderMathInElement(element, {
+        delimiters: [
+            { left: "$$", right: "$$", display: true },
+            { left: "\\[", right: "\\]", display: true },
+            { left: "$", right: "$", display: false },
+            { left: "\\(", right: "\\)", display: false }
+        ],
+        throwOnError: false
+    });
+}
+
 function autoResizeTextarea(textarea) {
     if (!textarea) {
         return;
@@ -1279,6 +1295,7 @@ async function renderProfilePage() {
                 <h1 class="topicdetailtitle">${escapeHtml(user.username)}</h1>
                 <div class="profiledetailpanel">
                     <p class="topicdetailtext"><span>User ID:</span> ${escapeHtml(user.id)}</p>
+                    <p class="topicdetailtext"><span>QScore:</span> ${escapeHtml(user.qscore)}</p>
                     ${showEmail ? `<p class="topicdetailtext"><span>Email:</span> ${escapeHtml(user.email || "No email on file.")}</p>` : ""}
                     <p class="topicdetailtext"><span>Bio:</span></p>
                     <div class="profilebiooutput">${bioText}</div>
@@ -1741,6 +1758,7 @@ async function submitProblemSetSuggestion(event) {
         description: document.getElementById("suggest-description").value.trim(),
         problems: JSON.stringify(problems),
         calculatorAllowed: document.getElementById("suggest-calculator-allowed").checked,
+        assessmentEnabled: document.getElementById("suggest-assessment-enabled")?.checked || false,
         submitter: null
     };
 
@@ -1832,6 +1850,14 @@ async function initContributePage() {
 
     initMarkdownToolbar(".markdownbutton[data-markdown]", document.getElementById("suggest-description"));
     initDesmosTool();
+    initAssessmentToggle();
+
+    if (currentUser.role === "admin") {
+        const assessmentField = document.getElementById("suggest-assessment-field");
+        if (assessmentField) {
+            assessmentField.classList.remove("hidden");
+        }
+    }
 
     const editId = new URLSearchParams(window.location.search).get("editSuggestion");
     const statusElement = document.getElementById("suggestion-status");
@@ -1864,6 +1890,12 @@ async function initContributePage() {
         document.getElementById("suggest-name").value = suggestion.name || "";
         document.getElementById("suggest-description").value = suggestion.description || "";
         document.getElementById("suggest-calculator-allowed").checked = Boolean(suggestion.calculatorAllowed);
+
+        const assessmentCheckbox = document.getElementById("suggest-assessment-enabled");
+        if (assessmentCheckbox) {
+            assessmentCheckbox.checked = Boolean(suggestion.assessmentEnabled);
+        }
+        setAssessmentEnabled(Boolean(suggestion.assessmentEnabled));
 
         await initSuggestionFormSelects({ topic: suggestion.topic, subtopic: suggestion.subtopic, unit: suggestion.unit, tags: suggestion.tags });
 
@@ -1900,25 +1932,30 @@ async function initContributePage() {
     }
 }
 
+function extractProblemItemData(item) {
+    const prompt = item.querySelector('.problem-prompt').value.trim();
+    const type = item.querySelector('.problem-type').value;
+    const pointsInput = item.querySelector('.problem-points');
+    const points = pointsInput ? Math.max(0, Math.trunc(Number(pointsInput.value) || 0)) : 0;
+
+    if (type === 'multiple_choice') {
+        const choiceRows = Array.from(item.querySelectorAll('.problemtakechoice'));
+        const choices = choiceRows.map(row => row.querySelector('.choice-input').value.trim()).filter(Boolean);
+        const checkedRadio = item.querySelector('.problemtakechoiceinput:checked');
+        const checkedRow = checkedRadio ? checkedRadio.closest('.problemtakechoice') : null;
+        const answer = checkedRow ? checkedRow.querySelector('.choice-input').value.trim() : '';
+
+        return { prompt, type, choices, answer, points };
+    }
+
+    const answer = item.querySelector('.problem-answer').value.trim();
+    return { prompt, type, choices: [], answer, points };
+}
+
 function serializeProblemItems() {
     const items = Array.from(document.querySelectorAll('.problemtakeitem'));
-    return items.map((item) => {
-        const prompt = item.querySelector('.problem-prompt').value.trim();
-        const type = item.querySelector('.problem-type').value;
-
-        if (type === 'multiple_choice') {
-            const choiceRows = Array.from(item.querySelectorAll('.problemtakechoice'));
-            const choices = choiceRows.map(row => row.querySelector('.choice-input').value.trim()).filter(Boolean);
-            const checkedRadio = item.querySelector('.problemtakechoiceinput:checked');
-            const checkedRow = checkedRadio ? checkedRadio.closest('.problemtakechoice') : null;
-            const answer = checkedRow ? checkedRow.querySelector('.choice-input').value.trim() : '';
-
-            return { prompt, type, choices, answer };
-        }
-
-        const answer = item.querySelector('.problem-answer').value.trim();
-        return { prompt, type, choices: [], answer };
-    }).filter(problem => problem.prompt && problem.type && problem.answer && (problem.type !== 'multiple_choice' || problem.choices.length > 0));
+    return items.map(extractProblemItemData)
+        .filter(problem => problem.prompt && problem.type && problem.answer && (problem.type !== 'multiple_choice' || problem.choices.length > 0));
 }
 
 function getProblemBuilderItems() {
@@ -1956,13 +1993,20 @@ function refreshProblemBuilderToc() {
 function refreshProblemBuilderNav() {
     const items = getProblemBuilderItems();
     items.forEach((item, index) => {
+        const nav = item.querySelector('.problemtakenav');
         const prevButton = item.querySelector('[data-nav="prev"]');
         const nextButton = item.querySelector('[data-nav="next"]');
+        const prevHidden = index === 0;
+        const nextHidden = index === items.length - 1;
+
         if (prevButton) {
-            prevButton.classList.toggle('hidden', index === 0);
+            prevButton.classList.toggle('hidden', prevHidden);
         }
         if (nextButton) {
-            nextButton.classList.toggle('hidden', index === items.length - 1);
+            nextButton.classList.toggle('hidden', nextHidden);
+        }
+        if (nav) {
+            nav.classList.toggle('hidden', prevHidden && nextHidden);
         }
     });
 }
@@ -2116,6 +2160,21 @@ function updateProblemItemTypeFields(item) {
 let desmosToolEnabled = false;
 let desmosApiKeyValue = null;
 let desmosScriptPromise = null;
+let assessmentEnabled = false;
+
+function setAssessmentEnabled(enabled) {
+    assessmentEnabled = enabled;
+    document.querySelectorAll(".problem-points-field").forEach((field) => field.classList.toggle("hidden", !enabled));
+}
+
+function initAssessmentToggle() {
+    const checkbox = document.getElementById("suggest-assessment-enabled");
+    if (!checkbox) {
+        return;
+    }
+
+    checkbox.addEventListener("change", () => setAssessmentEnabled(checkbox.checked));
+}
 
 function loadDesmosScript(apiKey) {
     if (window.Desmos) {
@@ -2187,6 +2246,61 @@ function closeDesmosModal() {
     if (existing) {
         existing.remove();
     }
+}
+
+function buildProblemPreviewHtml(problem) {
+    const choices = Array.isArray(problem.choices) ? problem.choices : [];
+
+    const inputHtml = problem.type === 'multiple_choice'
+        ? choices.map((choice, index) => `
+            <label class="problemtakechoice">
+                <input type="radio" class="problemtakechoiceinput" disabled ${choice && choice === problem.answer ? 'checked' : ''}>
+                <span class="problemtakechoiceletter">${String.fromCharCode(65 + index)}</span>
+                <span class="problemtakechoicetext">${escapeHtml(choice)}</span>
+            </label>
+        `).join('')
+        : `<input type="text" class="inputs" placeholder="Your answer" disabled>`;
+
+    return `
+        <div class="problemtakeitem">
+            <div class="problemtakeprompt"><span class="problemtakenumber">1.</span> ${renderMarkdown(problem.prompt, "No prompt entered yet.")}</div>
+            <div class="problemtakeinput">${inputHtml}</div>
+        </div>
+    `;
+}
+
+function closeProblemPreview() {
+    const existing = document.querySelector(".problempreviewoverlay");
+    if (existing) {
+        existing.remove();
+    }
+}
+
+function openProblemPreview(item) {
+    closeProblemPreview();
+
+    const problem = extractProblemItemData(item);
+
+    const overlay = document.createElement('div');
+    overlay.className = 'problempreviewoverlay';
+    overlay.innerHTML = `
+        <div class="problempreviewmodal">
+            <div class="problempreviewheader">
+                <span class="aboutustitle">Preview</span>
+                <button type="button" class="problempreviewclose" aria-label="Close">&times;</button>
+            </div>
+            <div class="problempreviewcontent">${buildProblemPreviewHtml(problem)}</div>
+        </div>
+    `;
+    document.body.appendChild(overlay);
+    renderMathIn(overlay);
+
+    overlay.querySelector('.problempreviewclose').addEventListener('click', closeProblemPreview);
+    overlay.addEventListener('click', (event) => {
+        if (event.target === overlay) {
+            closeProblemPreview();
+        }
+    });
 }
 
 function insertTextAtCursor(textarea, text) {
@@ -2325,7 +2439,10 @@ function addProblemItem() {
     template.innerHTML = `
         <div class="problem-item-header">
             <span class="aboutustitle">Problem ${problemIndex}</span>
-            <button type="button" class="authsubmit remove-problem-button">Remove</button>
+            <div class="problem-item-header-actions">
+                <button type="button" class="authsubmit preview-problem-button">Preview</button>
+                <button type="button" class="authsubmit remove-problem-button">Remove</button>
+            </div>
         </div>
         <label class="aboutustitle">Problem Type</label>
         <select class="inputs problem-type">
@@ -2343,6 +2460,10 @@ function addProblemItem() {
         </div>
         <label class="aboutustitle problem-answer-label">Acceptable Answers</label>
         <input class="inputs problem-answer" type="text" placeholder="Enter acceptable answers separated by commas:">
+        <div class="problem-points-field${assessmentEnabled ? '' : ' hidden'}">
+            <label class="aboutustitle">Points</label>
+            <input class="inputs problem-points" type="number" min="0" step="1" placeholder="0" value="0">
+        </div>
         <div class="problemtakenav">
             <button type="button" class="topicdetailback" data-nav="prev">Previous problem</button>
             <button type="button" class="topicdetailback" data-nav="next">Next problem</button>
@@ -2359,6 +2480,11 @@ function addProblemItem() {
 
     const removeButton = template.querySelector('.remove-problem-button');
     removeButton.addEventListener('click', () => removeProblemItem(removeButton));
+
+    const previewButton = template.querySelector('.preview-problem-button');
+    if (previewButton) {
+        previewButton.addEventListener('click', () => openProblemPreview(template));
+    }
 
     const addChoiceButton = template.querySelector('.add-choice-button');
     if (addChoiceButton) {
@@ -2414,6 +2540,11 @@ function populateProblemItem(template, problem) {
     const promptInput = template.querySelector('.problem-prompt');
     if (promptInput) {
         promptInput.value = problem.prompt || '';
+    }
+
+    const pointsInput = template.querySelector('.problem-points');
+    if (pointsInput) {
+        pointsInput.value = Number.isFinite(Number(problem.points)) ? Number(problem.points) : 0;
     }
 
     if (problem.type === 'multiple_choice') {

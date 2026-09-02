@@ -6,6 +6,7 @@
     <title>QRank - Contribute</title>
     <link rel="icon" type="image/png" href="/images/favicon.png?v=2">
     <link rel="stylesheet" href="/styles.css">
+    <link rel="stylesheet" href="/vendor/katex/katex.min.css">
     <link href="https://fonts.cdnfonts.com/css/d-din" rel="stylesheet">
 </head>
 <body>
@@ -43,6 +44,11 @@
                         <span>Calculator approved</span>
                     </label>
 
+                    <label class="profiletoggle hidden" for="suggest-assessment-enabled" id="suggest-assessment-field">
+                        <input type="checkbox" id="suggest-assessment-enabled">
+                        <span>Assessment enabled</span>
+                    </label>
+
                     <label class="aboutustitle" for="suggest-description">Description</label>
                     <div class="markdowntoolbar">
                         <button class="markdownbutton" type="button" data-markdown="bold">Bold</button>
@@ -71,6 +77,10 @@
         </form>
     </main>
     <footer class="sitefooter"></footer>
+    <script src="/vendor/marked.min.js"></script>
+    <script src="/vendor/purify.min.js"></script>
+    <script src="/vendor/katex/katex.min.js"></script>
+    <script src="/vendor/katex/auto-render.min.js"></script>
     <script src="/script.js"></script>
 </body>
 </html>

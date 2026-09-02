@@ -37,6 +37,7 @@ function renderSuggestions(container, suggestions) {
     }
 
     container.innerHTML = suggestions.map(renderSuggestion).join('');
+    renderMathIn(container);
 
     suggestions.forEach((suggestion) => {
         const card = document.getElementById(`suggestion-${suggestion.id}`);
