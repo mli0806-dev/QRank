@@ -738,6 +738,7 @@ app.post("/api/problem-sets/:id/check", publicWriteLimiter, async (req, res) => 
         }
 
         const results = {};
+        const correctAnswers = {};
         let correctCount = 0;
         const correctProblems = [];
 
@@ -749,6 +750,7 @@ app.post("/api/problem-sets/:id/check", publicWriteLimiter, async (req, res) => 
             const isCorrect = acceptableAnswers.includes(submittedAnswer.toLowerCase()) && submittedAnswer !== "";
 
             results[problem.id] = isCorrect;
+            correctAnswers[problem.id] = problem.answer;
             if (isCorrect) {
                 correctCount += 1;
                 correctProblems.push(problem);
@@ -778,6 +780,7 @@ app.post("/api/problem-sets/:id/check", publicWriteLimiter, async (req, res) => 
 
         res.json({
             results,
+            correctAnswers,
             correctCount,
             total: problemRows.length,
             pointsAwarded

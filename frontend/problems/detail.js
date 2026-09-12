@@ -243,7 +243,7 @@ async function checkSingleProblem(problemSetId, problem) {
             return;
         }
 
-        const { results, pointsAwarded } = await response.json();
+        const { results, correctAnswers, pointsAwarded } = await response.json();
         const isCorrect = Boolean(results[problem.id]);
 
         if (feedback) {
@@ -252,8 +252,31 @@ async function checkSingleProblem(problemSetId, problem) {
                 : (isCorrect ? "Correct" : "Incorrect");
         }
         if (item) {
-            item.classList.toggle("problemtakecorrect", isCorrect);
-            item.classList.toggle("problemtakeincorrect", !isCorrect);
+            if (problem.type === "multiple_choice") {
+                const correctAnswerRaw = correctAnswers ? correctAnswers[problem.id] : undefined;
+                const normalizedCorrect = typeof correctAnswerRaw === "string"
+                    ? correctAnswerRaw.trim().toLowerCase()
+                    : null;
+
+                item.querySelectorAll(".problemtakechoice").forEach((choiceEl) => {
+                    choiceEl.classList.remove("problemtakechoicecorrect", "problemtakechoiceincorrect");
+
+                    const radio = choiceEl.querySelector(".problemtakechoiceinput");
+                    if (!radio) {
+                        return;
+                    }
+
+                    if (normalizedCorrect !== null && radio.value.trim().toLowerCase() === normalizedCorrect) {
+                        choiceEl.classList.add("problemtakechoicecorrect");
+                    }
+                    if (radio.checked && !isCorrect) {
+                        choiceEl.classList.add("problemtakechoiceincorrect");
+                    }
+                });
+            } else {
+                item.classList.toggle("problemtakecorrect", isCorrect);
+                item.classList.toggle("problemtakeincorrect", !isCorrect);
+            }
         }
     } catch (error) {
         console.error("Failed to check answer:", error);
