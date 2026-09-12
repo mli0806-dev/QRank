@@ -59,7 +59,7 @@ async function renderProfilePage() {
             <div class="topicdetail">
                 <h1 class="topicdetailtitle">${escapeHtml(user.username)}</h1>
                 <div class="profiledetailpanel">
-                    <p class="topicdetailtext"><span>User ID:</span> ${escapeHtml(user.id)}</p>
+                    <p class="topicdetailtext"><span>User ID:</span> ${escapeHtml(user.displayId)}</p>
                     <p class="topicdetailtext"><span>QScore:</span> ${escapeHtml(user.qscore)}</p>
                     ${showEmail ? `<p class="topicdetailtext"><span>Email:</span> ${escapeHtml(user.email || "No email on file.")}</p>` : ""}
                     <p class="topicdetailtext"><span>Bio:</span></p>

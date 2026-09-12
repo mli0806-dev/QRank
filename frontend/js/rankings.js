@@ -40,7 +40,7 @@ async function loadLeaderboard() {
             <li class="leaderboarditem">
                 <span class="leaderboardplacement">#${escapeHtml(row.placement)}</span>
                 <a class="leaderboardusername" href="/profile/${encodeURIComponent(row.username)}">${escapeHtml(row.username)}</a>
-                <span class="leaderboardid">ID ${escapeHtml(row.id)}</span>
+                <span class="leaderboardid">ID ${escapeHtml(row.displayId)}</span>
                 <span class="leaderboardscore">${escapeHtml(row.qscore)} QScore</span>
             </li>
         `).join('');

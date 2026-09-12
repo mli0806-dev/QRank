@@ -2,6 +2,7 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const { db, uniqueSuffix } = require('./helpers/testDb');
 const app = require('../backend/app');
+const { getLeaderboard } = require('../backend/services/leaderboard');
 
 test('leaderboard placement', async (t) => {
     let server;
@@ -49,5 +50,19 @@ test('leaderboard placement', async (t) => {
         assert.equal(byId.get(tiedIdA).placement, byId.get(tiedIdB).placement);
         assert.equal(byId.get(lowId).placement, byId.get(tiedIdA).placement + 2);
         assert.equal(byId.get(highId).qscore, 100);
+    });
+
+    await t.test('display_id is sequential and gapless regardless of gaps in the real id', async () => {
+        const firstId = await createUser(5);
+        const secondId = await createUser(5);
+
+        const rows = await getLeaderboard(db, { limit: 1000 });
+        const byId = new Map(rows.map((row) => [row.id, row]));
+
+        const firstDisplayId = byId.get(firstId).display_id;
+        const secondDisplayId = byId.get(secondId).display_id;
+
+        assert.equal(typeof firstDisplayId, 'number');
+        assert.equal(secondDisplayId, firstDisplayId + 1);
     });
 });

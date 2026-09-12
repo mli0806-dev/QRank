@@ -1,6 +1,7 @@
 function shapeUserForResponse(user, { isOwner }) {
     return {
         id: user.id,
+        displayId: user.display_id,
         username: user.username,
         bio: user.bio || "",
         publicEmail: Boolean(user.public_email),

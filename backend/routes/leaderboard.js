@@ -7,7 +7,14 @@ const router = express.Router();
 
 router.get("/api/leaderboard", publicReadLimiter, async (req, res) => {
     try {
-        const leaderboard = await getLeaderboard(db);
+        const rows = await getLeaderboard(db);
+        const leaderboard = rows.map((row) => ({
+            id: row.id,
+            displayId: row.display_id,
+            username: row.username,
+            qscore: row.qscore,
+            placement: row.placement
+        }));
         res.json({ leaderboard });
     } catch (err) {
         console.error(err);

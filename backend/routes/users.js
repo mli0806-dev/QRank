@@ -38,7 +38,7 @@ router.get("/api/users/:username", publicReadLimiter, async (req, res) => {
         const { username } = req.params;
         const viewer = await auth.getSessionUser(req);
         const [rows] = await db.query(
-            "SELECT id, username, email, public_email, bio, qscore FROM users WHERE username = ? LIMIT 1",
+            "SELECT id, username, email, public_email, bio, qscore, (SELECT COUNT(*) FROM users u2 WHERE u2.id <= users.id) AS display_id FROM users WHERE username = ? LIMIT 1",
             [username]
         );
 
@@ -74,7 +74,7 @@ router.put("/api/users/:username", publicWriteLimiter, auth.requireAuth, async (
         );
 
         const [rows] = await db.query(
-            "SELECT id, username, email, public_email, bio, qscore FROM users WHERE username = ? LIMIT 1",
+            "SELECT id, username, email, public_email, bio, qscore, (SELECT COUNT(*) FROM users u2 WHERE u2.id <= users.id) AS display_id FROM users WHERE username = ? LIMIT 1",
             [username]
         );
 
