@@ -1,3 +1,6 @@
+import { escapeHtml } from '/js/core/dom.js';
+import { getCurrentUser } from '/js/core/auth-state.js';
+
 async function loadCompetitionDetail() {
     const container = document.getElementById("competitiondetailcontainer");
 

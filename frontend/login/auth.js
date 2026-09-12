@@ -46,16 +46,20 @@ document.addEventListener("DOMContentLoaded", () => {
                 const data = await response.json();
                 
                 if (!response.ok) {
-                    errorDiv.textContent = data.error || data.message || "Login failed.";
-                    errorDiv.style.display = "block";
+                    if (errorDiv) {
+                        errorDiv.textContent = data.error || data.message || "Login failed.";
+                        errorDiv.style.display = "block";
+                    }
                 } else {
                     loginForm.reset();
                     window.location.href = "/";
                 }
             } catch (error) {
                 console.error("Login error:", error);
-                errorDiv.textContent = "Login failed.";
-                errorDiv.style.display = "block";
+                if (errorDiv) {
+                    errorDiv.textContent = "Login failed.";
+                    errorDiv.style.display = "block";
+                }
             }
         });
     }
@@ -77,15 +81,19 @@ document.addEventListener("DOMContentLoaded", () => {
                 const data = await response.json();
                 
                 if (!response.ok) {
-                    errorDiv.textContent = data.error || data.message || "Registration failed.";
-                    errorDiv.style.display = "block";
+                    if (errorDiv) {
+                        errorDiv.textContent = data.error || data.message || "Registration failed.";
+                        errorDiv.style.display = "block";
+                    }
                 } else {
                     registerForm.reset();
                 }
             } catch (error) {
                 console.error("Registration error:", error);
-                errorDiv.textContent = "Registration failed.";
-                errorDiv.style.display = "block";
+                if (errorDiv) {
+                    errorDiv.textContent = "Registration failed.";
+                    errorDiv.style.display = "block";
+                }
             }
         });
     }

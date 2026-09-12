@@ -19,52 +19,66 @@ async function run() {
     });
 
     try {
-        await connection.query(`
-            CREATE TABLE IF NOT EXISTS schema_migrations (
-                id INT AUTO_INCREMENT PRIMARY KEY,
-                name VARCHAR(255) NOT NULL,
-                checksum CHAR(64) NOT NULL,
-                applied_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-                UNIQUE KEY name (name)
-            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
-        `);
+        const [[{ lockAcquired }]] = await connection.query("SELECT GET_LOCK('qrank_migrations', 10) AS lockAcquired");
 
-        const [appliedRows] = await connection.query("SELECT name, checksum FROM schema_migrations");
-        const applied = new Map(appliedRows.map(row => [row.name, row.checksum]));
-
-        const files = fs.readdirSync(MIGRATIONS_DIR)
-            .filter(file => file.endsWith('.sql'))
-            .sort();
-
-        let appliedCount = 0;
-
-        for (const file of files) {
-            const sql = fs.readFileSync(path.join(MIGRATIONS_DIR, file), 'utf8');
-            const checksum = crypto.createHash('sha256').update(sql).digest('hex');
-
-            if (applied.has(file)) {
-                if (applied.get(file) !== checksum) {
-                    console.warn(`Warning: ${file} was already applied but its contents changed on disk. Skipping it — add a new migration instead of editing an applied one.`);
-                }
-                continue;
-            }
-
-            console.log(`Applying ${file}...`);
-            await connection.query(sql);
-            await connection.query(
-                "INSERT INTO schema_migrations (name, checksum) VALUES (?, ?)",
-                [file, checksum]
-            );
-            appliedCount += 1;
+        if (!lockAcquired) {
+            throw new Error("Could not acquire migration lock — another migration run may be in progress.");
         }
 
-        console.log(appliedCount > 0 ? `Applied ${appliedCount} migration(s).` : "Database is already up to date.");
+        try {
+            await connection.query(`
+                CREATE TABLE IF NOT EXISTS schema_migrations (
+                    id INT AUTO_INCREMENT PRIMARY KEY,
+                    name VARCHAR(255) NOT NULL,
+                    checksum CHAR(64) NOT NULL,
+                    applied_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                    UNIQUE KEY name (name)
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
+            `);
+
+            const [appliedRows] = await connection.query("SELECT name, checksum FROM schema_migrations");
+            const applied = new Map(appliedRows.map(row => [row.name, row.checksum]));
+
+            const files = fs.readdirSync(MIGRATIONS_DIR)
+                .filter(file => file.endsWith('.sql'))
+                .sort();
+
+            let appliedCount = 0;
+
+            for (const file of files) {
+                const sql = fs.readFileSync(path.join(MIGRATIONS_DIR, file), 'utf8');
+                const checksum = crypto.createHash('sha256').update(sql).digest('hex');
+
+                if (applied.has(file)) {
+                    if (applied.get(file) !== checksum) {
+                        console.warn(`Warning: ${file} was already applied but its contents changed on disk. Skipping it — add a new migration instead of editing an applied one.`);
+                    }
+                    continue;
+                }
+
+                console.log(`Applying ${file}...`);
+                await connection.query(sql);
+                await connection.query(
+                    "INSERT INTO schema_migrations (name, checksum) VALUES (?, ?)",
+                    [file, checksum]
+                );
+                appliedCount += 1;
+            }
+
+            console.log(appliedCount > 0 ? `Applied ${appliedCount} migration(s).` : "Database is already up to date.");
+        } finally {
+            await connection.query("SELECT RELEASE_LOCK('qrank_migrations')");
+        }
     } finally {
         await connection.end();
     }
 }
 
-run().catch(err => {
-    console.error("Migration failed:", err);
-    process.exitCode = 1;
-});
+module.exports = { run };
+
+if (require.main === module) {
+    run().catch(err => {
+        console.error("Migration failed:", err);
+        process.exitCode = 1;
+    });
+}

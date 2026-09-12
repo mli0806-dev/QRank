@@ -1,0 +1,1 @@
+ALTER TABLE problems ADD COLUMN explanation TEXT DEFAULT NULL;

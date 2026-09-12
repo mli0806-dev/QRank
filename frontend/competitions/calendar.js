@@ -1,3 +1,6 @@
+import { escapeHtml } from '/js/core/dom.js';
+import { getCurrentUser } from '/js/core/auth-state.js';
+
 const systemDate = new Date();
 const months = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
 
@@ -170,6 +173,7 @@ async function initAddCompetitionButton() {
 function initJoinCompetitionForm() {
     const form = document.getElementById("joinCompetitionForm");
     const input = document.getElementById("joinCompetitionCode");
+    const status = document.getElementById("joinCompetitionStatus");
     if (!form || !input) {
         return;
     }
@@ -182,19 +186,27 @@ function initJoinCompetitionForm() {
             return;
         }
 
+        if (status) {
+            status.textContent = "Looking up code...";
+        }
+
         try {
             const response = await fetch(`/api/competitions/lookup?code=${encodeURIComponent(code)}`);
             const data = await response.json();
 
             if (!response.ok) {
-                alert(data.message || "No competition matches that code.");
+                if (status) {
+                    status.textContent = data.message || "No competition matches that code.";
+                }
                 return;
             }
 
             window.location.href = `/competitions/${encodeURIComponent(data.competitionId)}?code=${encodeURIComponent(code)}`;
         } catch (error) {
             console.error("Failed to look up competition code:", error);
-            alert("Unable to look up that code right now.");
+            if (status) {
+                status.textContent = "Unable to look up that code right now.";
+            }
         }
     });
 }

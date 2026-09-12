@@ -1,3 +1,8 @@
+import { getCurrentUser } from '/js/core/auth-state.js';
+import { initMarkdownToolbar } from '/js/core/markdown-toolbar.js';
+import { initDesmosTool } from '/js/desmos.js';
+import { addProblemItem, serializeProblemItems } from '/js/contribute.js';
+
 function populateTimeSelects(prefix) {
     const hourSelect = document.getElementById(`competition-${prefix}-hour`);
     const minuteSelect = document.getElementById(`competition-${prefix}-minute`);
@@ -23,9 +28,17 @@ function populateTimeSelects(prefix) {
 }
 
 function readTimeSelect(prefix) {
-    const hour = document.getElementById(`competition-${prefix}-hour`).value;
-    const minute = document.getElementById(`competition-${prefix}-minute`).value;
-    const ampm = document.getElementById(`competition-${prefix}-ampm`).value;
+    const hourSelect = document.getElementById(`competition-${prefix}-hour`);
+    const minuteSelect = document.getElementById(`competition-${prefix}-minute`);
+    const ampmSelect = document.getElementById(`competition-${prefix}-ampm`);
+
+    if (!hourSelect || !minuteSelect || !ampmSelect) {
+        return null;
+    }
+
+    const hour = hourSelect.value;
+    const minute = minuteSelect.value;
+    const ampm = ampmSelect.value;
 
     if (!hour || !minute || !ampm) {
         return null;

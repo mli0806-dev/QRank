@@ -1,3 +1,7 @@
+import { escapeHtml, renderMarkdown, renderMathIn } from '/js/core/dom.js';
+import { getCurrentUser } from '/js/core/auth-state.js';
+import { renderChoiceInputs } from '/js/problem-sets/choice-render.js';
+
 async function loadProblemSetDetail() {
     const container = document.getElementById("problemsetdetailcontainer");
 
@@ -86,6 +90,8 @@ function renderProblemSetDetail(container, problemSetId, problemSet, problems) {
                 event.preventDefault();
                 checkSingleProblem(problemSetId, problem);
             });
+            initProblemAnswerState(problem, form);
+            initProblemExplainButton(form);
         }
     });
 
@@ -183,30 +189,68 @@ async function initProblemSetEditButton(problemSetId) {
 
 function renderProblem(problem, index, total) {
     const number = index + 1;
-    const choices = Array.isArray(problem.choices) ? problem.choices : [];
 
     const inputHtml = problem.type === "multiple_choice"
-        ? choices.map((choice, choiceIndex) => `
-            <label class="problemtakechoice">
-                <input type="radio" name="problem-${problem.id}" value="${escapeHtml(choice)}" class="problemtakechoiceinput">
-                <span class="problemtakechoiceletter">${String.fromCharCode(65 + choiceIndex)}</span>
-                <span class="problemtakechoicetext">${escapeHtml(choice)}</span>
-            </label>
-        `).join('')
+        ? renderChoiceInputs(problem, { interactive: true, namePrefix: `problem-${problem.id}` })
         : `<input type="text" class="inputs" id="problem-input-${problem.id}" name="problem-${problem.id}" placeholder="Your answer" autocomplete="off">`;
+
+    const explainButtonHtml = problem.hasExplanation
+        ? '<button type="button" class="topicdetailback problemtakeexplainbutton" disabled>Explain</button>'
+        : "";
 
     return `
         <form class="problemtakeitem" id="problemtakeform-${problem.id}">
             <div class="problemtakeprompt"><span class="problemtakenumber">${number}.</span> ${renderMarkdown(problem.prompt, "")}</div>
             <div class="problemtakeinput">${inputHtml}</div>
-            <button type="submit" class="authsubmit">Check</button>
+            <button type="submit" class="authsubmit" disabled>Check</button>
             <p class="problemtakefeedback"></p>
             <div class="problemtakenav">
                 ${index === 0 ? "" : '<button type="button" class="topicdetailback" data-nav="prev">Previous problem</button>'}
-                ${index === total - 1 ? "" : '<button type="button" class="topicdetailback" data-nav="next">Next problem</button>'}
+                <div class="problemtakenavright">
+                    ${explainButtonHtml}
+                    ${index === total - 1 ? "" : '<button type="button" class="topicdetailback" data-nav="next">Next problem</button>'}
+                </div>
             </div>
+            ${problem.hasExplanation ? '<p class="problemtakeexplanation hidden"></p>' : ""}
         </form>
     `;
+}
+
+function initProblemAnswerState(problem, form) {
+    const submitButton = form.querySelector(".authsubmit");
+    if (!submitButton) {
+        return;
+    }
+
+    const updateState = () => {
+        submitButton.disabled = getSubmittedAnswer(problem).trim() === "";
+    };
+
+    if (problem.type === "multiple_choice") {
+        form.querySelectorAll(".problemtakechoiceinput").forEach((input) => {
+            input.addEventListener("change", updateState);
+        });
+    } else {
+        const input = form.querySelector(`#problem-input-${problem.id}`);
+        if (input) {
+            input.addEventListener("input", updateState);
+        }
+    }
+
+    updateState();
+}
+
+function initProblemExplainButton(form) {
+    const explainButton = form.querySelector(".problemtakeexplainbutton");
+    const explanationEl = form.querySelector(".problemtakeexplanation");
+    if (!explainButton || !explanationEl) {
+        return;
+    }
+
+    explainButton.addEventListener("click", () => {
+        const nowHidden = explanationEl.classList.toggle("hidden");
+        explainButton.textContent = nowHidden ? "Explain" : "Hide Explanation";
+    });
 }
 
 function getSubmittedAnswer(problem) {
@@ -243,8 +287,18 @@ async function checkSingleProblem(problemSetId, problem) {
             return;
         }
 
-        const { results, correctAnswers, pointsAwarded } = await response.json();
+        const { results, correctAnswers, explanations, pointsAwarded } = await response.json();
         const isCorrect = Boolean(results[problem.id]);
+
+        const explainButton = item ? item.querySelector(".problemtakeexplainbutton") : null;
+        const explanationEl = item ? item.querySelector(".problemtakeexplanation") : null;
+        const explanationText = explanations ? explanations[problem.id] : undefined;
+
+        if (explainButton && explanationEl && typeof explanationText === "string" && explanationText.trim() !== "") {
+            explainButton.disabled = false;
+            explanationEl.innerHTML = renderMarkdown(explanationText, "");
+            renderMathIn(explanationEl);
+        }
 
         if (feedback) {
             feedback.textContent = isCorrect && pointsAwarded

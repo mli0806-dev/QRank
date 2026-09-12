@@ -1,21 +1,26 @@
+import { escapeHtml, renderMarkdown, renderMathIn } from '/js/core/dom.js';
+import { getCurrentUser } from '/js/core/auth-state.js';
+
 async function loadSuggestions() {
     const container = document.getElementById("suggestionslist");
     if (!container) {
         return;
     }
 
+    const currentUser = await getCurrentUser();
+
+    if (!currentUser) {
+        container.innerHTML = `<p>Not logged in. <a href="/login/">Log in</a> with an admin account.</p>`;
+        return;
+    }
+
+    if (currentUser.role !== "admin") {
+        container.innerHTML = `<p>Your account isn't authorized to view this.</p>`;
+        return;
+    }
+
     try {
         const response = await fetch("/api/admin/problem-set-suggestions");
-
-        if (response.status === 401) {
-            container.innerHTML = `<p>Not logged in. <a href="/login/">Log in</a> with an admin account.</p>`;
-            return;
-        }
-
-        if (response.status === 403) {
-            container.innerHTML = `<p>Your account isn't authorized to view this.</p>`;
-            return;
-        }
 
         if (!response.ok) {
             container.innerHTML = `<p>Failed to load suggestions.</p>`;
