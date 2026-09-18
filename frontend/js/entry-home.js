@@ -14,17 +14,17 @@ async function updateProblemSetCount() {
     }
 }
 
-async function updateTopicCount() {
+async function updateCourseCount() {
     try {
-        const response = await fetch('/api/topics/count');
+        const response = await fetch('/api/courses/count');
         const data = await response.json();
-        const topicsLink = document.querySelector('#topics-count-link .boxtitle');
+        const coursesLink = document.querySelector('#courses-count-link .boxtitle');
 
-        if (topicsLink && typeof data.count === 'number') {
-            topicsLink.textContent = `${data.count} Topic${data.count === 1 ? '' : 's'}`;
+        if (coursesLink && typeof data.count === 'number') {
+            coursesLink.textContent = `${data.count} Course${data.count === 1 ? '' : 's'}`;
         }
     } catch (error) {
-        console.error('Failed to fetch topic count:', error);
+        console.error('Failed to fetch course count:', error);
     }
 }
 
@@ -44,5 +44,5 @@ async function updateUserCount() {
 
 initCorePage();
 updateProblemSetCount();
-updateTopicCount();
+updateCourseCount();
 updateUserCount();

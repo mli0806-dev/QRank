@@ -1,16 +1,16 @@
 import { escapeHtml, slugify } from '../core/dom.js';
 
-async function renderTopicNetworkPage() {
+async function renderCourseNetworkPage() {
     const container = document.getElementById("coursecontainer");
     if (!container) {
         return;
     }
 
     container.innerHTML = `
-        <div class="topicnetworkpage">
+        <div class="coursenetworkpage">
             <div class="network-map-wrapper" id="network-map-wrapper">
                 <div class="network-map-controls">
-                    <button type="button" id="network-exit-button" class="network-exit-button">Back to Topics</button>
+                    <button type="button" id="network-exit-button" class="network-exit-button">Back to Courses</button>
                     <button type="button" id="network-reset-button" class="network-reset-button">Reset view</button>
                     <button type="button" id="network-collapse-button" class="network-collapse-button">Collapse all</button>
                 </div>
@@ -22,18 +22,18 @@ async function renderTopicNetworkPage() {
     const exitButton = document.getElementById("network-exit-button");
     if (exitButton) {
         exitButton.addEventListener("click", () => {
-            window.location.href = "/topics/";
+            window.location.href = "/courses/";
         });
     }
 
     try {
-        const apiUrl = (window.location.origin || '') + '/api/topics';
+        const apiUrl = (window.location.origin || '') + '/api/courses';
         const response = await fetch(apiUrl);
         if (!response.ok) {
             throw new Error(`API error ${response.status} ${response.statusText}`);
         }
-        const topics = await response.json();
-        initTopicNetworkMap(topics);
+        const courses = await response.json();
+        initCourseNetworkMap(courses);
     } catch (error) {
         console.error('Failed to load topic network data:', error);
         const map = document.getElementById('network-map');
@@ -50,14 +50,14 @@ async function renderTopicNetworkPage() {
             if (retry) {
                 retry.addEventListener('click', () => {
                     retry.disabled = true;
-                    renderTopicNetworkPage();
+                    renderCourseNetworkPage();
                 });
             }
         }
     }
 }
 
-function initTopicNetworkMap(topics = []) {
+function initCourseNetworkMap(courses = []) {
     const wrapper = document.getElementById("network-map-wrapper");
     const map = document.getElementById("network-map");
     const resetButton = document.getElementById("network-reset-button");
@@ -69,7 +69,7 @@ function initTopicNetworkMap(topics = []) {
 
     const centerX = 700;
     const centerY = 450;
-    const totalTopics = topics.length || 1;
+    const totalCourses = courses.length || 1;
 
     let measureContext = null;
     function measureLabelWidth(label) {
@@ -82,7 +82,7 @@ function initTopicNetworkMap(topics = []) {
 
     const NODE_HALF_HEIGHT = 23;
     const NODE_GAP = 40;
-    const SUBTOPIC_CONE_HALF_ANGLE = Math.PI / 3; 
+    const TOPIC_CONE_HALF_ANGLE = Math.PI / 3;
     function clampAngleToCone(angle, centerAngle, halfAngle) {
         const diff = Math.atan2(Math.sin(angle - centerAngle), Math.cos(angle - centerAngle));
         return centerAngle + Math.max(-halfAngle, Math.min(halfAngle, diff));
@@ -97,16 +97,16 @@ function initTopicNetworkMap(topics = []) {
             Math.abs(a.y - b.y) < (a.halfH + b.halfH + NODE_GAP);
     }
 
-    const topicLabels = topics.map((topic) => topic.topic + (topic.subtopics?.length ? ` (${topic.subtopics.length})` : ''));
+    const courseLabels = courses.map((course) => course.course + (course.topics?.length ? ` (${course.topics.length})` : ''));
 
-    const maxTopicHalfWidth = Math.max(70, ...topicLabels.map((label) => nodeHalfWidth(label, 32)));
-    const angleStep = (Math.PI * 2) / totalTopics;
-    const requiredRadius = totalTopics > 1
-        ? (maxTopicHalfWidth * 2 + NODE_GAP) / (2 * Math.sin(angleStep / 2))
+    const maxCourseHalfWidth = Math.max(70, ...courseLabels.map((label) => nodeHalfWidth(label, 32)));
+    const angleStep = (Math.PI * 2) / totalCourses;
+    const requiredRadius = totalCourses > 1
+        ? (maxCourseHalfWidth * 2 + NODE_GAP) / (2 * Math.sin(angleStep / 2))
         : 0;
     const outerRadius = Math.max(320, requiredRadius);
 
-    function getTopicLightness() {
+    function getCourseLightness() {
         return document.body.classList.contains('dark') ? 80 : 40;
     }
 
@@ -114,30 +114,30 @@ function initTopicNetworkMap(topics = []) {
         return document.body.classList.contains('dark') ? 50 : 35;
     }
 
-    const nodes = topics.map((topic, index) => {
-        const angle = (index / totalTopics) * Math.PI * 2;
+    const nodes = courses.map((course, index) => {
+        const angle = (index / totalCourses) * Math.PI * 2;
         const x = centerX + Math.cos(angle) * outerRadius;
         const y = centerY + Math.sin(angle) * outerRadius;
-        const hue = (index / totalTopics) * 360;
-        return { x, y, label: topicLabels[index], slug: slugify(topic.topic), hue, color: `hsl(${hue}, 50%, ${getTopicLightness()}%)` };
+        const hue = (index / totalCourses) * 360;
+        return { x, y, label: courseLabels[index], slug: slugify(course.course), hue, color: `hsl(${hue}, 50%, ${getCourseLightness()}%)` };
     });
 
     if (!nodes.length) {
-        nodes.push({ x: centerX, y: centerY, label: 'No topics found', color: `hsl(0, 0%, ${getNeutralLightness()}%)` });
+        nodes.push({ x: centerX, y: centerY, label: 'No courses found', color: `hsl(0, 0%, ${getNeutralLightness()}%)` });
     }
 
     function refreshNodeColors() {
-        const topicLightness = getTopicLightness();
+        const courseLightness = getCourseLightness();
         const neutralLightness = getNeutralLightness();
         nodes.forEach((node) => {
             node.color = typeof node.hue === 'number'
-                ? `hsl(${node.hue}, 50%, ${topicLightness}%)`
+                ? `hsl(${node.hue}, 50%, ${courseLightness}%)`
                 : `hsl(0, 0%, ${neutralLightness}%)`;
         });
     }
 
-    const selectedTopicIndexes = new Set();
-    const selectedSubtopicKeys = new Set();
+    const selectedCourseIndexes = new Set();
+    const selectedTopicKeys = new Set();
 
     const handleMapClick = (event) => {
         let target = event.target;
@@ -152,39 +152,39 @@ function initTopicNetworkMap(topics = []) {
         }
 
         const type = node.dataset.type;
-        if (type === "topic") {
+        if (type === "course") {
             const index = Number(node.dataset.index);
             if (!Number.isNaN(index)) {
-                if (selectedTopicIndexes.has(index)) {
-                    selectedTopicIndexes.delete(index);
+                if (selectedCourseIndexes.has(index)) {
+                    selectedCourseIndexes.delete(index);
                 } else {
-                    selectedTopicIndexes.add(index);
+                    selectedCourseIndexes.add(index);
+                }
+                renderMap();
+            }
+        } else if (type === "topic") {
+            const courseIndex = Number(node.dataset.courseIndex);
+            const topicIndex = Number(node.dataset.topicIndex);
+            if (!Number.isNaN(courseIndex) && !Number.isNaN(topicIndex)) {
+                const key = `${courseIndex}-${topicIndex}`;
+                if (selectedTopicKeys.has(key)) {
+                    selectedTopicKeys.delete(key);
+                } else {
+                    selectedTopicKeys.add(key);
                 }
                 renderMap();
             }
         } else if (type === "subtopic") {
-            const topicIndex = Number(node.dataset.topicIndex);
-            const subtopicIndex = Number(node.dataset.subtopicIndex);
-            if (!Number.isNaN(topicIndex) && !Number.isNaN(subtopicIndex)) {
-                const key = `${topicIndex}-${subtopicIndex}`;
-                if (selectedSubtopicKeys.has(key)) {
-                    selectedSubtopicKeys.delete(key);
-                } else {
-                    selectedSubtopicKeys.add(key);
-                }
-                renderMap();
-            }
-        } else if (type === "unit") {
-            navigateToUnitNode(node);
+            navigateToSubtopicNode(node);
         }
     };
 
-    function navigateToUnitNode(node) {
+    function navigateToSubtopicNode(node) {
+        const courseSlug = node.dataset.courseSlug;
         const topicSlug = node.dataset.topicSlug;
         const subtopicSlug = node.dataset.subtopicSlug;
-        const unitSlug = node.dataset.unitSlug;
-        if (topicSlug && subtopicSlug && unitSlug) {
-            window.location.href = `/topics/${topicSlug}/${subtopicSlug}/${unitSlug}`;
+        if (courseSlug && topicSlug && subtopicSlug) {
+            window.location.href = `/courses/${courseSlug}/${topicSlug}/${subtopicSlug}`;
         }
     }
 
@@ -209,30 +209,30 @@ function initTopicNetworkMap(topics = []) {
         event.preventDefault();
 
         const type = node.dataset.type;
-        if (type === "topic") {
+        if (type === "course") {
+            const courseSlug = node.dataset.courseSlug;
+            if (courseSlug) {
+                window.location.href = `/courses/${courseSlug}`;
+            }
+        } else if (type === "topic") {
+            const courseSlug = node.dataset.courseSlug;
             const topicSlug = node.dataset.topicSlug;
-            if (topicSlug) {
-                window.location.href = `/topics/${topicSlug}`;
+            if (courseSlug && topicSlug) {
+                window.location.href = `/courses/${courseSlug}/${topicSlug}`;
             }
         } else if (type === "subtopic") {
-            const topicSlug = node.dataset.topicSlug;
-            const subtopicSlug = node.dataset.subtopicSlug;
-            if (topicSlug && subtopicSlug) {
-                window.location.href = `/topics/${topicSlug}/${subtopicSlug}`;
-            }
-        } else if (type === "unit") {
-            navigateToUnitNode(node);
+            navigateToSubtopicNode(node);
         }
     });
 
-    function getSubtopicAngles(parentNode, subtopics) {
+    function getTopicAngles(parentNode, topics) {
         const baseRadius = 200;
         const ringGap = 150;
-        const maxRingArc = SUBTOPIC_CONE_HALF_ANGLE * 2;
+        const maxRingArc = TOPIC_CONE_HALF_ANGLE * 2;
         const nodeHorizontalPadding = 36;
         const parentAngle = Math.atan2(parentNode.y - centerY, parentNode.x - centerX);
         const layout = [];
-        let remaining = subtopics.slice();
+        let remaining = topics.slice();
         let ring = 0;
 
         while (remaining.length) {
@@ -310,13 +310,13 @@ function initTopicNetworkMap(topics = []) {
 
     const COLLISION_SEARCH_ANGLE_OFFSETS = [0, 0.15, -0.15, 0.3, -0.3, 0.5, -0.5, 0.8, -0.8, 1.0, -1.0];
 
-    function resolveSubtopicPosition(parentNode, initialAngle, initialRadius, halfW, halfH, obstacles, parentAngle) {
+    function resolveTopicPosition(parentNode, initialAngle, initialRadius, halfW, halfH, obstacles, parentAngle) {
         const maxRadius = initialRadius + 40 * 20;
         let radius = initialRadius;
 
         while (radius <= maxRadius) {
             for (const offset of COLLISION_SEARCH_ANGLE_OFFSETS) {
-                const angle = clampAngleToCone(initialAngle + offset, parentAngle, SUBTOPIC_CONE_HALF_ANGLE);
+                const angle = clampAngleToCone(initialAngle + offset, parentAngle, TOPIC_CONE_HALF_ANGLE);
                 const x = parentNode.x + Math.cos(angle) * radius;
                 const y = parentNode.y + Math.sin(angle) * radius;
                 if (!obstacles.some((o) => boxesOverlap({ x, y, halfW, halfH }, o))) {
@@ -326,7 +326,7 @@ function initTopicNetworkMap(topics = []) {
             radius += 20;
         }
 
-        const fallbackAngle = clampAngleToCone(initialAngle, parentAngle, SUBTOPIC_CONE_HALF_ANGLE);
+        const fallbackAngle = clampAngleToCone(initialAngle, parentAngle, TOPIC_CONE_HALF_ANGLE);
         return {
             x: parentNode.x + Math.cos(fallbackAngle) * radius,
             y: parentNode.y + Math.sin(fallbackAngle) * radius
@@ -334,18 +334,18 @@ function initTopicNetworkMap(topics = []) {
     }
 
     function renderMap() {
-        const topicLineData = nodes.flatMap((start, i) => {
+        const courseLineData = nodes.flatMap((start, i) => {
             return nodes.slice(i + 1).map((end, offset) => {
                 const j = i + 1 + offset;
-                const gradientId = `topic-line-${i}-${j}`;
+                const gradientId = `course-line-${i}-${j}`;
                 return {
                     gradient: `<linearGradient id="${gradientId}" gradientUnits="userSpaceOnUse" x1="${start.x}" y1="${start.y}" x2="${end.x}" y2="${end.y}"><stop offset="0%" stop-color="${start.color}" /><stop offset="100%" stop-color="${end.color}" /></linearGradient>`,
                     line: `<line x1="${start.x}" y1="${start.y}" x2="${end.x}" y2="${end.y}" style="stroke: url(#${gradientId});" />`
                 };
             });
         });
-        const topicGradients = topicLineData.map((item) => item.gradient).join("");
-        const topicLines = topicLineData.map((item) => item.line).join("");
+        const courseGradients = courseLineData.map((item) => item.gradient).join("");
+        const courseLines = courseLineData.map((item) => item.line).join("");
 
         const obstacles = nodes.map((node) => ({
             x: node.x,
@@ -354,79 +354,79 @@ function initTopicNetworkMap(topics = []) {
             halfH: NODE_HALF_HEIGHT
         }));
 
-        const expandedSubtopicData = [];
-        const subtopicNodesByKey = new Map();
+        const expandedTopicData = [];
+        const topicNodesByKey = new Map();
 
-        Array.from(selectedTopicIndexes).forEach((topicIndex) => {
-            const topic = topics[topicIndex];
-            const parentNode = nodes[topicIndex] || { x: centerX, y: centerY, color: `hsl(0, 0%, ${getNeutralLightness()}%)` };
+        Array.from(selectedCourseIndexes).forEach((courseIndex) => {
+            const course = courses[courseIndex];
+            const parentNode = nodes[courseIndex] || { x: centerX, y: centerY, color: `hsl(0, 0%, ${getNeutralLightness()}%)` };
             const parentAngle = Math.atan2(parentNode.y - centerY, parentNode.x - centerX);
-            const angled = getSubtopicAngles(parentNode, topic?.subtopics || []);
+            const angled = getTopicAngles(parentNode, course?.topics || []);
 
             angled.forEach(({ sub, angle, radius }) => {
                 const halfW = nodeHalfWidth(sub.name, 36);
                 const halfH = NODE_HALF_HEIGHT;
-                const { x, y } = resolveSubtopicPosition(parentNode, angle, radius, halfW, halfH, obstacles, parentAngle);
+                const { x, y } = resolveTopicPosition(parentNode, angle, radius, halfW, halfH, obstacles, parentAngle);
 
                 obstacles.push({ x, y, halfW, halfH });
 
-                const subtopicIndex = topic.subtopics.indexOf(sub);
-                const subtopicKey = `${topicIndex}-${subtopicIndex}`;
-                const isExpanded = selectedSubtopicKeys.has(subtopicKey);
-                subtopicNodesByKey.set(subtopicKey, {
-                    x, y, color: parentNode.color, subtopic: sub,
-                    topicSlug: slugify(topic.topic), subtopicSlug: slugify(sub.name)
+                const topicIndex = course.topics.indexOf(sub);
+                const topicKey = `${courseIndex}-${topicIndex}`;
+                const isExpanded = selectedTopicKeys.has(topicKey);
+                topicNodesByKey.set(topicKey, {
+                    x, y, color: parentNode.color, topic: sub,
+                    courseSlug: slugify(course.course), topicSlug: slugify(sub.name)
                 });
 
-                expandedSubtopicData.push({
+                expandedTopicData.push({
                     line: `<line x1="${parentNode.x}" y1="${parentNode.y}" x2="${x}" y2="${y}" style="stroke: ${parentNode.color};" />`,
-                    markup: `<button type="button" class="network-node subtopic${isExpanded ? ' selected' : ''}" data-type="subtopic" data-topic-slug="${encodeURIComponent(slugify(topic.topic))}" data-subtopic-slug="${encodeURIComponent(slugify(sub.name))}" data-topic-index="${topicIndex}" data-subtopic-index="${subtopicIndex}" style="left: ${x}px; top: ${y}px; color: ${parentNode.color};">${escapeHtml(sub.name)}</button>`
+                    markup: `<button type="button" class="network-node topic${isExpanded ? ' selected' : ''}" data-type="topic" data-course-slug="${encodeURIComponent(slugify(course.course))}" data-topic-slug="${encodeURIComponent(slugify(sub.name))}" data-course-index="${courseIndex}" data-topic-index="${topicIndex}" style="left: ${x}px; top: ${y}px; color: ${parentNode.color};">${escapeHtml(sub.name)}</button>`
                 });
             });
         });
 
-        const expandedUnitData = [];
+        const expandedSubtopicData = [];
 
-        Array.from(selectedSubtopicKeys).forEach((key) => {
-            const subtopicNode = subtopicNodesByKey.get(key);
-            if (!subtopicNode) {
+        Array.from(selectedTopicKeys).forEach((key) => {
+            const topicNode = topicNodesByKey.get(key);
+            if (!topicNode) {
                 return;
             }
 
-            const parentAngle = Math.atan2(subtopicNode.y - centerY, subtopicNode.x - centerX);
-            const angled = getSubtopicAngles(subtopicNode, subtopicNode.subtopic.units || []);
+            const parentAngle = Math.atan2(topicNode.y - centerY, topicNode.x - centerX);
+            const angled = getTopicAngles(topicNode, topicNode.topic.subtopics || []);
 
-            angled.forEach(({ sub: unit, angle, radius }) => {
-                const halfW = nodeHalfWidth(unit.name, 36);
+            angled.forEach(({ sub: subtopic, angle, radius }) => {
+                const halfW = nodeHalfWidth(subtopic.name, 36);
                 const halfH = NODE_HALF_HEIGHT;
-                const { x, y } = resolveSubtopicPosition(subtopicNode, angle, radius, halfW, halfH, obstacles, parentAngle);
+                const { x, y } = resolveTopicPosition(topicNode, angle, radius, halfW, halfH, obstacles, parentAngle);
 
                 obstacles.push({ x, y, halfW, halfH });
 
-                expandedUnitData.push({
-                    line: `<line x1="${subtopicNode.x}" y1="${subtopicNode.y}" x2="${x}" y2="${y}" style="stroke: ${subtopicNode.color};" />`,
-                    markup: `<button type="button" class="network-node unit" data-type="unit" data-topic-slug="${encodeURIComponent(subtopicNode.topicSlug)}" data-subtopic-slug="${encodeURIComponent(subtopicNode.subtopicSlug)}" data-unit-slug="${encodeURIComponent(slugify(unit.name))}" style="left: ${x}px; top: ${y}px; color: ${subtopicNode.color};">${escapeHtml(unit.name)}</button>`
+                expandedSubtopicData.push({
+                    line: `<line x1="${topicNode.x}" y1="${topicNode.y}" x2="${x}" y2="${y}" style="stroke: ${topicNode.color};" />`,
+                    markup: `<button type="button" class="network-node subtopic" data-type="subtopic" data-course-slug="${encodeURIComponent(topicNode.courseSlug)}" data-topic-slug="${encodeURIComponent(topicNode.topicSlug)}" data-subtopic-slug="${encodeURIComponent(slugify(subtopic.name))}" style="left: ${x}px; top: ${y}px; color: ${topicNode.color};">${escapeHtml(subtopic.name)}</button>`
                 });
             });
         });
 
-        const lines = `${topicLines}${expandedSubtopicData.map((item) => item.line).join("")}${expandedUnitData.map((item) => item.line).join("")}`;
+        const lines = `${courseLines}${expandedTopicData.map((item) => item.line).join("")}${expandedSubtopicData.map((item) => item.line).join("")}`;
 
         const nodeMarkup = nodes.map((node, index) => `
-            <button type="button" class="network-node topic${selectedTopicIndexes.has(index) ? ' selected' : ''}" data-type="topic" data-index="${index}" data-topic-slug="${encodeURIComponent(node.slug || '')}" style="left: ${node.x}px; top: ${node.y}px; color: ${node.color};">${escapeHtml(node.label)}</button>
+            <button type="button" class="network-node course${selectedCourseIndexes.has(index) ? ' selected' : ''}" data-type="course" data-index="${index}" data-course-slug="${encodeURIComponent(node.slug || '')}" style="left: ${node.x}px; top: ${node.y}px; color: ${node.color};">${escapeHtml(node.label)}</button>
         `).join("");
 
+        const topicMarkup = expandedTopicData.map((item) => item.markup).join("");
         const subtopicMarkup = expandedSubtopicData.map((item) => item.markup).join("");
-        const unitMarkup = expandedUnitData.map((item) => item.markup).join("");
 
         map.innerHTML = `
             <svg class="network-lines" viewBox="0 0 1400 900" preserveAspectRatio="xMinYMin meet">
-                <defs>${topicGradients}</defs>
+                <defs>${courseGradients}</defs>
                 ${lines}
             </svg>
             ${nodeMarkup}
+            ${topicMarkup}
             ${subtopicMarkup}
-            ${unitMarkup}
         `;
     }
 
@@ -556,8 +556,8 @@ function initTopicNetworkMap(topics = []) {
     });
 
     collapseButton?.addEventListener("click", () => {
-        selectedTopicIndexes.clear();
-        selectedSubtopicKeys.clear();
+        selectedCourseIndexes.clear();
+        selectedTopicKeys.clear();
         renderMap();
     });
 
@@ -571,7 +571,6 @@ function initTopicNetworkMap(topics = []) {
 
         const zoomFactor = event.deltaY > 0 ? 1 / 1.08 : 1.08;
         const nextScale = Math.min(MAX_SCALE, Math.max(MIN_SCALE, scale * zoomFactor));
-        const scaleRatio = nextScale / scale;
         scale = nextScale;
 
         originX = pointerX - beforeX * scale;
@@ -583,4 +582,4 @@ function initTopicNetworkMap(topics = []) {
     updateTransform();
 }
 
-export { renderTopicNetworkPage };
+export { renderCourseNetworkPage };

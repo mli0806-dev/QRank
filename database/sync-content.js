@@ -1,16 +1,3 @@
-// Reusable sync: pushes local topics/subtopics/units content to a target
-// database (e.g. production TiDB), using an upsert-by-id so it's always safe
-// to re-run.
-//
-// Usage:
-//   SYNC_TARGET_HOST=... SYNC_TARGET_PORT=4000 SYNC_TARGET_USER=... \
-//   SYNC_TARGET_PASSWORD=... SYNC_TARGET_NAME=qrankdb SYNC_TARGET_SSL=true \
-//   npm run sync-content
-//
-// Deliberately uses SYNC_TARGET_* names instead of the app's own DB_* names --
-// exporting DB_HOST etc. in the same shell would also redirect the app's own
-// local connection below to the target, silently syncing local-to-itself
-// instead of local-to-target (this bit us once already).
 const path = require('path');
 const mysql = require('mysql2/promise');
 
@@ -25,23 +12,18 @@ if (missing.length) {
     process.exit(1);
 }
 
-// Add a table here to bring it under the same sync/verify treatment.
-// "columns" is what gets compared/copied; "conflictUpdate" is the subset
-// written on a pre-existing id (everything except id itself).
 const TABLES = {
-    topics: {
+    courses: {
         columns: ['id', 'name'],
         conflictUpdate: ['name']
     },
-    subtopics: {
-        columns: ['id', 'topic_id', 'name', 'tags'],
-        conflictUpdate: ['topic_id', 'name', 'tags']
+    topics: {
+        columns: ['id', 'course_id', 'name', 'tags'],
+        conflictUpdate: ['course_id', 'name', 'tags']
     },
-    // Must stay after subtopics -- units.subtopic_id is a foreign key into it,
-    // and TABLES is synced in insertion order.
-    units: {
-        columns: ['id', 'subtopic_id', 'name'],
-        conflictUpdate: ['subtopic_id', 'name']
+    subtopics: {
+        columns: ['id', 'topic_id', 'name'],
+        conflictUpdate: ['topic_id', 'name']
     }
 };
 

@@ -74,7 +74,7 @@ function renderSuggestion(suggestion) {
 
     return `
         <div class="suggestioncard" id="suggestion-${suggestion.id}">
-            <p>${escapeHtml(suggestion.name)} — ${escapeHtml(suggestion.topic)} / ${escapeHtml(suggestion.subtopic)}</p>
+            <p>${escapeHtml(suggestion.name)} — ${escapeHtml(suggestion.course)} / ${escapeHtml(suggestion.topic)}</p>
             <p>Status: <span class="suggestionstatus">${escapeHtml(suggestion.status)}</span></p>
             <p class="suggestionlivelink">${renderLiveLink(suggestion.createdProblemSetId)}</p>
             <p>Submitted by: ${escapeHtml(suggestion.submitter || "anonymous")} on ${escapeHtml(new Date(suggestion.createdAt).toLocaleString())}</p>

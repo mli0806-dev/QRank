@@ -11,6 +11,7 @@ async function loadProblemSetDetail() {
 
     const parts = window.location.pathname.replace(/\/+$/, "").split("/").filter(Boolean);
     const problemSetId = parts[1];
+    const targetProblemId = new URLSearchParams(window.location.search).get("problem");
 
     if (!problemSetId) {
         container.innerHTML = `
@@ -38,7 +39,7 @@ async function loadProblemSetDetail() {
         }
 
         const { problemSet, problems } = await response.json();
-        renderProblemSetDetail(container, problemSetId, problemSet, problems);
+        renderProblemSetDetail(container, problemSetId, problemSet, problems, targetProblemId);
         initProblemSetEditButton(problemSetId);
     } catch (error) {
         console.error("Failed to load problem set:", error);
@@ -52,7 +53,7 @@ async function loadProblemSetDetail() {
     }
 }
 
-function renderProblemSetDetail(container, problemSetId, problemSet, problems) {
+function renderProblemSetDetail(container, problemSetId, problemSet, problems, targetProblemId) {
     const tocHtml = problems.length
         ? `
             <div class="problemtoc">
@@ -95,7 +96,7 @@ function renderProblemSetDetail(container, problemSetId, problemSet, problems) {
         }
     });
 
-    initProblemToc(problems);
+    initProblemToc(problems, targetProblemId);
     initProblemNav(problems);
 }
 
@@ -117,7 +118,7 @@ function showProblem(problems, activeIndex) {
     });
 }
 
-function initProblemToc(problems) {
+function initProblemToc(problems, targetProblemId) {
     document.querySelectorAll(".problemtocitem").forEach((button) => {
         button.addEventListener("click", () => {
             showProblem(problems, Number(button.dataset.problemIndex));
@@ -125,7 +126,10 @@ function initProblemToc(problems) {
     });
 
     if (problems.length) {
-        showProblem(problems, 0);
+        const targetIndex = targetProblemId
+            ? problems.findIndex((problem) => problem.id === Number(targetProblemId))
+            : -1;
+        showProblem(problems, targetIndex >= 0 ? targetIndex : 0);
     }
 }
 
@@ -200,7 +204,7 @@ function renderProblem(problem, index, total) {
 
     return `
         <form class="problemtakeitem" id="problemtakeform-${problem.id}">
-            <div class="problemtakeprompt"><span class="problemtakenumber">${number}.</span> ${renderMarkdown(problem.prompt, "")}</div>
+            <div class="problemtakeprompt"><span class="problemtakenumber">${number}.</span> <span class="problemtakeid">#${escapeHtml(problem.id)}</span> ${renderMarkdown(problem.prompt, "")}</div>
             <div class="problemtakeinput">${inputHtml}</div>
             <button type="submit" class="authsubmit" disabled>Check</button>
             <p class="problemtakefeedback"></p>

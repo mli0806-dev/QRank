@@ -5,60 +5,60 @@ import { initDesmosTool, desmosToolEnabled } from './desmos.js';
 import { renderChoiceInputs } from './problem-sets/choice-render.js';
 
 async function initSuggestionFormSelects(preselect = null) {
+    const courseSelect = document.getElementById("suggest-course");
     const topicSelect = document.getElementById("suggest-topic");
     const subtopicSelect = document.getElementById("suggest-subtopic");
-    const unitSelect = document.getElementById("suggest-unit");
     const tagsSelect = document.getElementById("suggest-tags");
 
-    if (!topicSelect || !subtopicSelect || !unitSelect || !tagsSelect) {
+    if (!courseSelect || !topicSelect || !subtopicSelect || !tagsSelect) {
         return;
     }
 
-    let topics = [];
+    let courses = [];
 
     try {
-        const response = await fetch('/api/topics');
+        const response = await fetch('/api/courses');
         if (!response.ok) {
             throw new Error(`API error ${response.status} ${response.statusText}`);
         }
-        topics = await response.json();
+        courses = await response.json();
     } catch (error) {
-        console.error('Failed to load topics for suggestion form:', error);
+        console.error('Failed to load courses for suggestion form:', error);
     }
 
-    const populateUnits = (topicName, subtopicName, selectUnitName) => {
-        const selectedTopic = topics.find((topic) => topic.topic === topicName);
-        const selectedSubtopic = selectedTopic?.subtopics.find((subtopic) => subtopic.name === subtopicName);
-        const units = selectedSubtopic ? (selectedSubtopic.units || []) : [];
+    const populateSubtopics = (courseName, topicName, selectSubtopicName) => {
+        const selectedCourse = courses.find((course) => course.course === courseName);
+        const selectedTopic = selectedCourse?.topics.find((topic) => topic.name === topicName);
+        const subtopics = selectedTopic ? (selectedTopic.subtopics || []) : [];
 
-        unitSelect.innerHTML = '<option value="">No specific unit</option>' +
-            units.map((unit) => `<option value="${escapeHtml(unit.name)}">${escapeHtml(unit.name)}</option>`).join('');
+        subtopicSelect.innerHTML = '<option value="">No specific subtopic</option>' +
+            subtopics.map((subtopic) => `<option value="${escapeHtml(subtopic.name)}">${escapeHtml(subtopic.name)}</option>`).join('');
 
-        unitSelect.value = selectUnitName || "";
+        subtopicSelect.value = selectSubtopicName || "";
     };
 
-    const populateSubtopics = (topicName, selectSubtopicName, selectUnitName) => {
-        const selectedTopic = topics.find((topic) => topic.topic === topicName);
-        const subtopics = selectedTopic ? selectedTopic.subtopics : [];
+    const populateTopics = (courseName, selectTopicName, selectSubtopicName) => {
+        const selectedCourse = courses.find((course) => course.course === courseName);
+        const topics = selectedCourse ? selectedCourse.topics : [];
 
-        subtopicSelect.innerHTML = subtopics.length
-            ? subtopics.map((subtopic) => `<option value="${escapeHtml(subtopic.name)}">${escapeHtml(subtopic.name)}</option>`).join('')
-            : '<option value="" disabled selected>No subtopics available</option>';
+        topicSelect.innerHTML = topics.length
+            ? topics.map((topic) => `<option value="${escapeHtml(topic.name)}">${escapeHtml(topic.name)}</option>`).join('')
+            : '<option value="" disabled selected>No topics available</option>';
 
-        if (selectSubtopicName) {
-            subtopicSelect.value = selectSubtopicName;
+        if (selectTopicName) {
+            topicSelect.value = selectTopicName;
         }
 
-        populateUnits(topicName, subtopicSelect.value, selectUnitName);
+        populateSubtopics(courseName, topicSelect.value, selectSubtopicName);
     };
 
-    topicSelect.innerHTML = topics.length
-        ? '<option value="" disabled selected>Select a topic</option>' +
-            topics.map((topic) => `<option value="${escapeHtml(topic.topic)}">${escapeHtml(topic.topic)}</option>`).join('')
-        : '<option value="" disabled selected>No topics available</option>';
+    courseSelect.innerHTML = courses.length
+        ? '<option value="" disabled selected>Select a course</option>' +
+            courses.map((course) => `<option value="${escapeHtml(course.course)}">${escapeHtml(course.course)}</option>`).join('')
+        : '<option value="" disabled selected>No courses available</option>';
 
-    topicSelect.addEventListener("change", () => populateSubtopics(topicSelect.value));
-    subtopicSelect.addEventListener("change", () => populateUnits(topicSelect.value, subtopicSelect.value));
+    courseSelect.addEventListener("change", () => populateTopics(courseSelect.value));
+    topicSelect.addEventListener("change", () => populateSubtopics(courseSelect.value, topicSelect.value));
 
     try {
         const response = await fetch('/api/tags');
@@ -72,9 +72,9 @@ async function initSuggestionFormSelects(preselect = null) {
     }
 
     if (preselect) {
-        if (preselect.topic) {
-            topicSelect.value = preselect.topic;
-            populateSubtopics(preselect.topic, preselect.subtopic, preselect.unit);
+        if (preselect.course) {
+            courseSelect.value = preselect.course;
+            populateTopics(preselect.course, preselect.topic, preselect.subtopic);
         }
 
         if (Array.isArray(preselect.tags)) {
@@ -109,13 +109,13 @@ async function submitProblemSetSuggestion(event) {
 
     const tagsSelect = document.getElementById("suggest-tags");
     const nameInput = document.getElementById("suggest-name");
+    const courseInput = document.getElementById("suggest-course");
     const topicInput = document.getElementById("suggest-topic");
     const subtopicInput = document.getElementById("suggest-subtopic");
-    const unitInput = document.getElementById("suggest-unit");
     const descriptionInput = document.getElementById("suggest-description");
     const calculatorAllowedInput = document.getElementById("suggest-calculator-allowed");
 
-    if (!tagsSelect || !nameInput || !topicInput || !subtopicInput || !unitInput || !descriptionInput || !calculatorAllowedInput) {
+    if (!tagsSelect || !nameInput || !courseInput || !topicInput || !subtopicInput || !descriptionInput || !calculatorAllowedInput) {
         statusElement.textContent = "This form is missing required fields. Please reload the page.";
         return;
     }
@@ -124,9 +124,9 @@ async function submitProblemSetSuggestion(event) {
 
     const payload = {
         name: nameInput.value.trim(),
+        course: courseInput.value.trim(),
         topic: topicInput.value.trim(),
         subtopic: subtopicInput.value.trim(),
-        unit: unitInput.value.trim(),
         tags: selectedTags.join(','),
         description: descriptionInput.value.trim(),
         problems: JSON.stringify(problems),
@@ -140,7 +140,7 @@ async function submitProblemSetSuggestion(event) {
         payload.submitter = currentUser.username || null;
     }
 
-    if (!payload.name || !payload.topic || !payload.subtopic || !problems.length) {
+    if (!payload.name || !payload.course || !payload.topic || !problems.length) {
         statusElement.textContent = "Please complete all required fields.";
         return;
     }
@@ -271,7 +271,7 @@ async function initContributePage() {
         }
         setAssessmentEnabled(Boolean(suggestion.assessmentEnabled));
 
-        await initSuggestionFormSelects({ topic: suggestion.topic, subtopic: suggestion.subtopic, unit: suggestion.unit, tags: suggestion.tags });
+        await initSuggestionFormSelects({ course: suggestion.course, topic: suggestion.topic, subtopic: suggestion.subtopic, tags: suggestion.tags });
 
         if (suggestion.problems.length) {
             suggestion.problems.forEach((problem) => populateProblemItem(addProblemItem(), problem));

@@ -50,7 +50,7 @@ app.use(require('./routes/misc'));
 app.use(require('./routes/auth'));
 app.use(require('./routes/problemSets'));
 app.use(require('./routes/suggestions'));
-app.use(require('./routes/topics'));
+app.use(require('./routes/courses'));
 app.use(require('./routes/users'));
 app.use(require('./routes/competitions'));
 app.use(require('./routes/leaderboard'));

@@ -3,7 +3,7 @@ import { escapeHtml, renderMarkdown } from '../core/dom.js';
 function renderProblemSetCard(problemSet, options = {}) {
     const { showBreadcrumb = false, showCalculatorTag = false } = options;
     const breadcrumb = showBreadcrumb
-        ? `<p class="problemsetmeta">${escapeHtml([problemSet.topic, problemSet.subtopic, problemSet.unit].filter(Boolean).join(" / ") || "Topic not assigned")}</p>`
+        ? `<p class="problemsetmeta">${escapeHtml([problemSet.course, problemSet.topic, problemSet.subtopic].filter(Boolean).join(" / ") || "Course not assigned")}</p>`
         : '';
     const calculatorTag = showCalculatorTag && problemSet.calculatorAllowed
         ? '<p class="tag">Calculator approved</p>'
@@ -67,6 +67,26 @@ async function loadProblemSets(searchTerm = "") {
     }
 }
 
+async function tryJumpToProblemById(rawInput) {
+    if (!/^\d+$/.test(rawInput)) {
+        return false;
+    }
+
+    try {
+        const response = await fetch(`/api/problems/${encodeURIComponent(rawInput)}`);
+        if (!response.ok) {
+            return false;
+        }
+
+        const { id, problemSetId } = await response.json();
+        window.location.href = `/problems/${encodeURIComponent(problemSetId)}?problem=${encodeURIComponent(id)}`;
+        return true;
+    } catch (error) {
+        console.error("Failed to look up problem by id:", error);
+        return false;
+    }
+}
+
 function initProblemSetSearch() {
     const form = document.getElementById("problem-set-search-form");
     const input = document.getElementById("problem-set-search");
@@ -75,9 +95,15 @@ function initProblemSetSearch() {
         return;
     }
 
-    form.addEventListener("submit", (event) => {
+    form.addEventListener("submit", async (event) => {
         event.preventDefault();
-        loadProblemSets(input.value.trim());
+        const searchTerm = input.value.trim();
+
+        if (await tryJumpToProblemById(searchTerm)) {
+            return;
+        }
+
+        loadProblemSets(searchTerm);
     });
 
     loadProblemSets("");

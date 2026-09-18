@@ -1,9 +1,3 @@
--- Reference snapshot of the schema produced by running every file in
--- database/migrations/ (via `npm run migrate`), which is the authoritative,
--- incrementally-tracked source of truth. Don't hand-edit a live database
--- against this file directly; add a new migration instead so schema.sql and
--- the actual database never drift apart again.
-
 SET FOREIGN_KEY_CHECKS = 0;
 
 CREATE TABLE IF NOT EXISTS users (
@@ -44,19 +38,27 @@ CREATE TABLE IF NOT EXISTS password_reset_codes (
     INDEX idx_password_reset_expires_at (expires_at)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
-CREATE TABLE IF NOT EXISTS topics (
+CREATE TABLE IF NOT EXISTS courses (
     id INT AUTO_INCREMENT PRIMARY KEY,
     name VARCHAR(100) NOT NULL,
     UNIQUE KEY name (name)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
-CREATE TABLE IF NOT EXISTS subtopics (
+CREATE TABLE IF NOT EXISTS topics (
     id INT AUTO_INCREMENT PRIMARY KEY,
-    topic_id INT DEFAULT NULL,
+    course_id INT DEFAULT NULL,
     name VARCHAR(100) NOT NULL,
     tags VARCHAR(100) DEFAULT NULL,
-    INDEX topic_id (topic_id),
-    CONSTRAINT subtopics_ibfk_1 FOREIGN KEY (topic_id) REFERENCES topics (id) ON DELETE CASCADE
+    INDEX topic_id (course_id),
+    CONSTRAINT topics_ibfk_1 FOREIGN KEY (course_id) REFERENCES courses (id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+CREATE TABLE IF NOT EXISTS subtopics (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    topic_id INT NOT NULL,
+    name VARCHAR(255) NOT NULL,
+    CONSTRAINT fk_units_subtopic FOREIGN KEY (topic_id) REFERENCES topics (id) ON DELETE CASCADE,
+    INDEX idx_units_subtopic (topic_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 CREATE TABLE IF NOT EXISTS problem_sets (
@@ -66,6 +68,7 @@ CREATE TABLE IF NOT EXISTS problem_sets (
     tags VARCHAR(255) DEFAULT NULL,
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    course VARCHAR(255) DEFAULT NULL,
     topic VARCHAR(255) DEFAULT NULL,
     subtopic VARCHAR(255) DEFAULT NULL,
     INDEX idx_problem_sets_name (name),
@@ -76,6 +79,7 @@ CREATE TABLE IF NOT EXISTS problem_set_suggestions (
     id INT AUTO_INCREMENT PRIMARY KEY,
     name VARCHAR(255) NOT NULL,
     description TEXT DEFAULT NULL,
+    course VARCHAR(255) DEFAULT NULL,
     topic VARCHAR(255) DEFAULT NULL,
     subtopic VARCHAR(255) DEFAULT NULL,
     tags VARCHAR(255) DEFAULT NULL,

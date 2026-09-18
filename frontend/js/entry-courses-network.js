@@ -1,5 +1,5 @@
 import { initCorePage } from './core/page-init.js';
-import { renderTopicNetworkPage } from './topics/network.js';
+import { renderCourseNetworkPage } from './courses/network.js';
 
 initCorePage();
-renderTopicNetworkPage();
+renderCourseNetworkPage();

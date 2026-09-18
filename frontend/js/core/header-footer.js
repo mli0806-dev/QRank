@@ -13,7 +13,7 @@ function injectHeaderFooter() {
             <div class="left">
                 <a href="/" class="sitetitle"><img src="/images/logo.png?v=3" alt="QRank" class="sitetitlelogo"></a>
                 <ul class="tablist">
-                    <li><a class="tabitems" href="/topics/">Topics</a></li>
+                    <li><a class="tabitems" href="/courses/">Courses</a></li>
                     <li><a class="tabitems" href="/problems/">Problem Sets</a></li>
                     <li><a class="tabitems" href="/competitions/">Competitions</a></li>
                     <li><a class="tabitems" href="/rankings/">Rankings</a></li>

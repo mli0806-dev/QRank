@@ -5,50 +5,50 @@ const { splitTags, mergeTags } = require('../services/tags');
 
 const router = express.Router();
 
-router.get("/api/topics", publicReadLimiter, async (req, res) => {
+router.get("/api/courses", publicReadLimiter, async (req, res) => {
     try {
         const [rows] = await db.query(`
             SELECT
+                courses.name AS course,
+                topics.id AS topic_id,
                 topics.name AS topic,
+                topics.tags,
                 subtopics.id AS subtopic_id,
-                subtopics.name AS subtopic,
-                subtopics.tags,
-                units.id AS unit_id,
-                units.name AS unit_name
-            FROM topics
-            LEFT JOIN subtopics ON topics.id = subtopics.topic_id
-            LEFT JOIN units ON units.subtopic_id = subtopics.id
+                subtopics.name AS subtopic_name
+            FROM courses
+            LEFT JOIN topics ON courses.id = topics.course_id
+            LEFT JOIN subtopics ON subtopics.topic_id = topics.id
         `);
-        const groupedtopics = {};
-        const subtopicsById = new Map();
+        const groupedcourses = {};
+        const topicsById = new Map();
 
         rows.forEach(row => {
-            if (!groupedtopics[row.topic]) {
-                groupedtopics[row.topic] = {
-                    topic: row.topic,
-                    subtopics: []
+            if (!groupedcourses[row.course]) {
+                groupedcourses[row.course] = {
+                    course: row.course,
+                    topics: []
                 };
             }
 
-            if (row.subtopic) {
-                let subtopicEntry = subtopicsById.get(row.subtopic_id);
-                if (!subtopicEntry) {
-                    subtopicEntry = {
-                        id: row.subtopic_id,
-                        name: row.subtopic,
+            if (row.topic) {
+                let topicEntry = topicsById.get(row.topic_id);
+                if (!topicEntry) {
+                    topicEntry = {
+                        id: row.topic_id,
+                        name: row.topic,
                         tags: row.tags,
-                        units: []
+                        subtopics: []
                     };
-                    subtopicsById.set(row.subtopic_id, subtopicEntry);
-                    groupedtopics[row.topic].subtopics.push(subtopicEntry);
+                    topicsById.set(row.topic_id, topicEntry);
+                    groupedcourses[row.course].topics.push(topicEntry);
                 }
 
-                if (row.unit_id) {
-                    subtopicEntry.units.push({ id: row.unit_id, name: row.unit_name });
+                if (row.subtopic_id) {
+                    topicEntry.subtopics.push({ id: row.subtopic_id, name: row.subtopic_name });
                 }
             }
         });
-        const nested = Object.values(groupedtopics);
+        const nested = Object.values(groupedcourses);
         res.json(nested);
     } catch (err) {
         console.error(err);
@@ -56,22 +56,22 @@ router.get("/api/topics", publicReadLimiter, async (req, res) => {
     }
 });
 
-router.get("/api/topics/count", async (req, res) => {
+router.get("/api/courses/count", async (req, res) => {
     try {
-        const [rows] = await db.query("SELECT COUNT(*) AS count FROM topics");
+        const [rows] = await db.query("SELECT COUNT(*) AS count FROM courses");
         res.json({ count: rows[0]?.count || 0 });
     } catch (err) {
         console.error(err);
-        res.status(500).json({ message: "Failed to fetch topic count." });
+        res.status(500).json({ message: "Failed to fetch course count." });
     }
 });
 
 router.get("/api/tags", publicReadLimiter, async (req, res) => {
     try {
-        const [subtopicRows] = await db.query("SELECT tags FROM subtopics WHERE tags IS NOT NULL AND tags <> ''");
+        const [topicRows] = await db.query("SELECT tags FROM topics WHERE tags IS NOT NULL AND tags <> ''");
         const [problemSetRows] = await db.query("SELECT tags FROM problem_sets WHERE tags IS NOT NULL AND tags <> ''");
 
-        const allTags = [...subtopicRows, ...problemSetRows].flatMap((row) => splitTags(row.tags));
+        const allTags = [...topicRows, ...problemSetRows].flatMap((row) => splitTags(row.tags));
         const tags = splitTags(mergeTags(allTags, [])).sort((a, b) => a.localeCompare(b));
 
         res.json({ tags });

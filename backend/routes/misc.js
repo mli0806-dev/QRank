@@ -7,12 +7,12 @@ const { deleteExpiredPasswordResetCodes, deleteExpiredSessions } = require('../c
 const router = express.Router();
 
 const frontendPath = path.join(__dirname, '../../frontend');
-const topicsPagePath = path.join(frontendPath, 'topics/index.html');
+const coursesPagePath = path.join(frontendPath, 'courses/index.html');
 const profilePagePath = path.join(frontendPath, 'profile/index.html');
 const competitionDetailPagePath = path.join(frontendPath, 'competitions/detail/index.html');
 const problemSetDetailPagePath = path.join(frontendPath, 'problems/detail/index.html');
 
-const sendTopicsPage = (req, res) => res.sendFile(topicsPagePath);
+const sendCoursesPage = (req, res) => res.sendFile(coursesPagePath);
 const sendProfilePage = (req, res) => res.sendFile(profilePagePath);
 const sendCompetitionDetailPage = (req, res) => res.sendFile(competitionDetailPagePath);
 const sendProblemSetDetailPage = (req, res) => res.sendFile(problemSetDetailPagePath);
@@ -96,11 +96,12 @@ router.get("/api/status", (req, res) => {
     });
 });
 
-router.get("/topics", sendTopicsPage);
-router.get("/topics/", sendTopicsPage);
-router.get("/topics/:topicSlug", sendTopicsPage);
-router.get("/topics/:topicSlug/:subtopicSlug", sendTopicsPage);
-router.get(/^\/topics\/.*$/, sendTopicsPage);
+router.get("/courses", sendCoursesPage);
+router.get("/courses/", sendCoursesPage);
+router.get("/courses/:courseSlug", sendCoursesPage);
+router.get("/courses/:courseSlug/:topicSlug", sendCoursesPage);
+router.get(/^\/courses\/.*$/, sendCoursesPage);
+router.get(/^\/topics(\/.*)?$/, (req, res) => res.redirect(301, `/courses${req.params[0] || ""}`));
 router.get("/profile", sendProfilePage);
 router.get("/profile/", sendProfilePage);
 router.get("/profile/:username", sendProfilePage);

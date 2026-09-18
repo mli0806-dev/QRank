@@ -20,20 +20,20 @@ function mergeTags(manualTags, courseTags) {
     return merged.join(',');
 }
 
-async function getCourseTagsForSubtopic(queryable, topic, subtopic) {
-    if (!topic || !subtopic) {
+async function getCourseTagsForTopic(queryable, course, topic) {
+    if (!course || !topic) {
         return [];
     }
 
     const [rows] = await queryable.query(
         `
-        SELECT subtopics.tags
-        FROM subtopics
-        JOIN topics ON topics.id = subtopics.topic_id
-        WHERE topics.name = ? AND subtopics.name = ?
+        SELECT topics.tags
+        FROM topics
+        JOIN courses ON courses.id = topics.course_id
+        WHERE courses.name = ? AND topics.name = ?
         LIMIT 1
         `,
-        [topic, subtopic]
+        [course, topic]
     );
 
     if (rows.length === 0 || !rows[0].tags) {
@@ -43,4 +43,4 @@ async function getCourseTagsForSubtopic(queryable, topic, subtopic) {
     return splitTags(rows[0].tags);
 }
 
-module.exports = { splitTags, mergeTags, getCourseTagsForSubtopic };
+module.exports = { splitTags, mergeTags, getCourseTagsForTopic };

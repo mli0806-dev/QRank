@@ -3,7 +3,7 @@ const auth = require('../auth');
 const validation = require('../validation');
 const db = require('../config/db');
 const { publicWriteLimiter } = require('../middleware/rateLimiters');
-const { splitTags, mergeTags, getCourseTagsForSubtopic } = require('../services/tags');
+const { splitTags, mergeTags, getCourseTagsForTopic } = require('../services/tags');
 const { insertProblemsIntoSet } = require('../services/problemInserter');
 
 const router = express.Router();
@@ -20,9 +20,9 @@ function mapSuggestionRow(row) {
         id: row.id,
         name: row.name,
         description: row.description,
+        course: row.course,
         topic: row.topic,
         subtopic: row.subtopic,
-        unit: row.unit,
         tags: splitTags(row.tags),
         problems: parsedProblems,
         submitter: row.submitter,
@@ -35,14 +35,14 @@ function mapSuggestionRow(row) {
     };
 }
 
-const SUGGESTION_COLUMNS = "id, name, description, topic, subtopic, unit, tags, problems, submitter, status, created_at, created_problem_set_id, editing_problem_set_id, calculator_allowed, assessment_enabled";
+const SUGGESTION_COLUMNS = "id, name, description, course, topic, subtopic, tags, problems, submitter, status, created_at, created_problem_set_id, editing_problem_set_id, calculator_allowed, assessment_enabled";
 
 router.post("/api/problem-set-suggestions", publicWriteLimiter, auth.requireAuth, async (req, res) => {
     try {
-        const { name, description, topic, subtopic, unit, tags, problems, calculatorAllowed, assessmentEnabled } = req.body || {};
+        const { name, description, course, topic, subtopic, tags, problems, calculatorAllowed, assessmentEnabled } = req.body || {};
 
-        if (!name || !topic || !subtopic || !problems) {
-            return res.status(400).json({ message: "Name, topic, subtopic, and problems are required." });
+        if (!name || !course || !topic || !problems) {
+            return res.status(400).json({ message: "Name, course, topic, and problems are required." });
         }
 
         const problemsValidation = validation.validateSuggestionProblemsPayload(problems);
@@ -53,9 +53,9 @@ router.post("/api/problem-set-suggestions", publicWriteLimiter, auth.requireAuth
 
         const cleanName = String(name).trim();
         const cleanDescription = String(description || "").trim();
+        const cleanCourse = String(course).trim();
         const cleanTopic = String(topic).trim();
-        const cleanSubtopic = String(subtopic).trim();
-        const cleanUnit = unit ? String(unit).trim() : null;
+        const cleanSubtopic = subtopic ? String(subtopic).trim() : null;
         const cleanTags = splitTags(tags).join(',');
         const cleanProblems = String(problems).trim();
         const cleanSubmitter = req.user.username;
@@ -63,8 +63,8 @@ router.post("/api/problem-set-suggestions", publicWriteLimiter, auth.requireAuth
         const cleanAssessmentEnabled = assessmentEnabled && req.user.role === "admin" ? 1 : 0;
 
         const [result] = await db.query(
-            "INSERT INTO problem_set_suggestions (name, description, topic, subtopic, unit, tags, problems, submitter, calculator_allowed, assessment_enabled) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-            [cleanName, cleanDescription, cleanTopic, cleanSubtopic, cleanUnit, cleanTags, cleanProblems, cleanSubmitter, cleanCalculatorAllowed, cleanAssessmentEnabled]
+            "INSERT INTO problem_set_suggestions (name, description, course, topic, subtopic, tags, problems, submitter, calculator_allowed, assessment_enabled) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            [cleanName, cleanDescription, cleanCourse, cleanTopic, cleanSubtopic, cleanTags, cleanProblems, cleanSubmitter, cleanCalculatorAllowed, cleanAssessmentEnabled]
         );
 
         res.status(201).json({
@@ -110,10 +110,10 @@ router.get("/api/admin/problem-set-suggestions/:id", auth.requireAdmin, async (r
 
 router.put("/api/admin/problem-set-suggestions/:id", auth.requireAdmin, async (req, res) => {
     try {
-        const { name, description, topic, subtopic, unit, tags, problems, calculatorAllowed, assessmentEnabled } = req.body || {};
+        const { name, description, course, topic, subtopic, tags, problems, calculatorAllowed, assessmentEnabled } = req.body || {};
 
-        if (!name || !topic || !subtopic || !problems) {
-            return res.status(400).json({ message: "Name, topic, subtopic, and problems are required." });
+        if (!name || !course || !topic || !problems) {
+            return res.status(400).json({ message: "Name, course, topic, and problems are required." });
         }
 
         const problemsValidation = validation.validateSuggestionProblemsPayload(problems);
@@ -123,13 +123,13 @@ router.put("/api/admin/problem-set-suggestions/:id", auth.requireAdmin, async (r
         }
 
         const cleanTags = splitTags(tags).join(',');
-        const cleanUnit = unit ? String(unit).trim() : null;
+        const cleanSubtopic = subtopic ? String(subtopic).trim() : null;
         const cleanCalculatorAllowed = calculatorAllowed ? 1 : 0;
         const cleanAssessmentEnabled = assessmentEnabled ? 1 : 0;
 
         const [result] = await db.query(
-            "UPDATE problem_set_suggestions SET name = ?, description = ?, topic = ?, subtopic = ?, unit = ?, tags = ?, problems = ?, calculator_allowed = ?, assessment_enabled = ? WHERE id = ?",
-            [String(name).trim(), String(description || "").trim(), String(topic).trim(), String(subtopic).trim(), cleanUnit, cleanTags, String(problems).trim(), cleanCalculatorAllowed, cleanAssessmentEnabled, req.params.id]
+            "UPDATE problem_set_suggestions SET name = ?, description = ?, course = ?, topic = ?, subtopic = ?, tags = ?, problems = ?, calculator_allowed = ?, assessment_enabled = ? WHERE id = ?",
+            [String(name).trim(), String(description || "").trim(), String(course).trim(), String(topic).trim(), cleanSubtopic, cleanTags, String(problems).trim(), cleanCalculatorAllowed, cleanAssessmentEnabled, req.params.id]
         );
 
         if (result.affectedRows === 0) {
@@ -146,7 +146,7 @@ router.put("/api/admin/problem-set-suggestions/:id", auth.requireAdmin, async (r
 router.post("/api/admin/problem-sets/:id/edit", auth.requireAdmin, async (req, res) => {
     try {
         const [problemSetRows] = await db.query(
-            "SELECT id, name, description, topic, subtopic, unit, tags, calculator_allowed, assessment_enabled FROM problem_sets WHERE id = ? LIMIT 1",
+            "SELECT id, name, description, course, topic, subtopic, tags, calculator_allowed, assessment_enabled FROM problem_sets WHERE id = ? LIMIT 1",
             [req.params.id]
         );
 
@@ -171,8 +171,8 @@ router.post("/api/admin/problem-sets/:id/edit", auth.requireAdmin, async (req, r
         })));
 
         const [result] = await db.query(
-            "INSERT INTO problem_set_suggestions (name, description, topic, subtopic, unit, tags, problems, submitter, status, editing_problem_set_id, calculator_allowed, assessment_enabled) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'pending', ?, ?, ?)",
-            [problemSet.name, problemSet.description, problemSet.topic, problemSet.subtopic, problemSet.unit, problemSet.tags, problemsJson, req.user.username, problemSet.id, problemSet.calculator_allowed, problemSet.assessment_enabled]
+            "INSERT INTO problem_set_suggestions (name, description, course, topic, subtopic, tags, problems, submitter, status, editing_problem_set_id, calculator_allowed, assessment_enabled) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'pending', ?, ?, ?)",
+            [problemSet.name, problemSet.description, problemSet.course, problemSet.topic, problemSet.subtopic, problemSet.tags, problemsJson, req.user.username, problemSet.id, problemSet.calculator_allowed, problemSet.assessment_enabled]
         );
 
         res.status(201).json({ suggestionId: result.insertId });
@@ -197,7 +197,7 @@ router.patch("/api/admin/problem-set-suggestions/:id", auth.requireAdmin, async 
         await connection.beginTransaction();
 
         const [suggestionRows] = await connection.query(
-            "SELECT id, name, description, topic, subtopic, unit, tags, problems, editing_problem_set_id, calculator_allowed, assessment_enabled FROM problem_set_suggestions WHERE id = ? LIMIT 1 FOR UPDATE",
+            "SELECT id, name, description, course, topic, subtopic, tags, problems, editing_problem_set_id, calculator_allowed, assessment_enabled FROM problem_set_suggestions WHERE id = ? LIMIT 1 FOR UPDATE",
             [id]
         );
 
@@ -232,15 +232,15 @@ router.patch("/api/admin/problem-set-suggestions/:id", auth.requireAdmin, async 
             }
 
             const manualTags = splitTags(suggestion.tags);
-            const courseTags = await getCourseTagsForSubtopic(connection, suggestion.topic, suggestion.subtopic);
+            const courseTags = await getCourseTagsForTopic(connection, suggestion.course, suggestion.topic);
             const finalTags = mergeTags(manualTags, courseTags);
 
             let publishedProblemSetId = suggestion.editing_problem_set_id;
 
             if (publishedProblemSetId) {
                 const [updateResult] = await connection.query(
-                    "UPDATE problem_sets SET name = ?, description = ?, topic = ?, subtopic = ?, unit = ?, tags = ?, calculator_allowed = ?, assessment_enabled = ? WHERE id = ?",
-                    [suggestion.name, suggestion.description, suggestion.topic, suggestion.subtopic, suggestion.unit, finalTags, suggestion.calculator_allowed, suggestion.assessment_enabled, publishedProblemSetId]
+                    "UPDATE problem_sets SET name = ?, description = ?, course = ?, topic = ?, subtopic = ?, tags = ?, calculator_allowed = ?, assessment_enabled = ? WHERE id = ?",
+                    [suggestion.name, suggestion.description, suggestion.course, suggestion.topic, suggestion.subtopic, finalTags, suggestion.calculator_allowed, suggestion.assessment_enabled, publishedProblemSetId]
                 );
 
                 if (updateResult.affectedRows === 0) {
@@ -251,8 +251,8 @@ router.patch("/api/admin/problem-set-suggestions/:id", auth.requireAdmin, async 
                 await connection.query("DELETE FROM problems WHERE problem_set_id = ?", [publishedProblemSetId]);
             } else {
                 const [problemSetResult] = await connection.query(
-                    "INSERT INTO problem_sets (name, description, topic, subtopic, unit, tags, calculator_allowed, assessment_enabled) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
-                    [suggestion.name, suggestion.description, suggestion.topic, suggestion.subtopic, suggestion.unit, finalTags, suggestion.calculator_allowed, suggestion.assessment_enabled]
+                    "INSERT INTO problem_sets (name, description, course, topic, subtopic, tags, calculator_allowed, assessment_enabled) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+                    [suggestion.name, suggestion.description, suggestion.course, suggestion.topic, suggestion.subtopic, finalTags, suggestion.calculator_allowed, suggestion.assessment_enabled]
                 );
 
                 publishedProblemSetId = problemSetResult.insertId;

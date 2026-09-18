@@ -2,7 +2,7 @@ const express = require('express');
 const auth = require('../auth');
 const db = require('../config/db');
 const { publicReadLimiter, publicWriteLimiter } = require('../middleware/rateLimiters');
-const { splitTags, mergeTags, getCourseTagsForSubtopic } = require('../services/tags');
+const { splitTags, mergeTags, getCourseTagsForTopic } = require('../services/tags');
 
 const router = express.Router();
 
@@ -19,9 +19,9 @@ router.get("/api/problem-sets/count", async (req, res) => {
 router.get("/api/problem-sets", publicReadLimiter, async (req, res) => {
     try {
         const searchTerm = String(req.query.search || "").trim();
+        const courseFilter = String(req.query.course || "").trim();
         const topicFilter = String(req.query.topic || "").trim();
         const subtopicFilter = String(req.query.subtopic || "").trim();
-        const unitFilter = String(req.query.unit || "").trim();
         const conditions = [];
         const params = [];
 
@@ -35,6 +35,11 @@ router.get("/api/problem-sets", publicReadLimiter, async (req, res) => {
             params.push(likeTerm, likeTerm, likeTerm);
         }
 
+        if (courseFilter) {
+            conditions.push("LOWER(COALESCE(course, '')) = ?");
+            params.push(courseFilter.toLowerCase());
+        }
+
         if (topicFilter) {
             conditions.push("LOWER(COALESCE(topic, '')) = ?");
             params.push(topicFilter.toLowerCase());
@@ -45,13 +50,8 @@ router.get("/api/problem-sets", publicReadLimiter, async (req, res) => {
             params.push(subtopicFilter.toLowerCase());
         }
 
-        if (unitFilter) {
-            conditions.push("LOWER(COALESCE(unit, '')) = ?");
-            params.push(unitFilter.toLowerCase());
-        }
-
         let query = `
-            SELECT id, name, description, topic, subtopic, unit, tags, calculator_allowed
+            SELECT id, name, description, course, topic, subtopic, tags, calculator_allowed
             FROM problem_sets
         `;
 
@@ -77,25 +77,25 @@ router.get("/api/problem-sets", publicReadLimiter, async (req, res) => {
 
 router.post("/api/problem-sets", auth.requireAdmin, async (req, res) => {
     try {
-        const { name, description, topic, subtopic, unit, tags, calculatorAllowed } = req.body || {};
+        const { name, description, course, topic, subtopic, tags, calculatorAllowed } = req.body || {};
 
-        if (!name || !topic || !subtopic) {
-            return res.status(400).json({ message: "Name, topic, and subtopic are required." });
+        if (!name || !course || !topic) {
+            return res.status(400).json({ message: "Name, course, and topic are required." });
         }
 
         const cleanName = String(name).trim();
         const cleanDescription = String(description || "").trim();
+        const cleanCourse = String(course).trim();
         const cleanTopic = String(topic).trim();
-        const cleanSubtopic = String(subtopic).trim();
-        const cleanUnit = unit ? String(unit).trim() : null;
+        const cleanSubtopic = subtopic ? String(subtopic).trim() : null;
         const cleanCalculatorAllowed = calculatorAllowed ? 1 : 0;
         const manualTags = splitTags(tags);
-        const courseTags = await getCourseTagsForSubtopic(db, cleanTopic, cleanSubtopic);
+        const courseTags = await getCourseTagsForTopic(db, cleanCourse, cleanTopic);
         const cleanTags = mergeTags(manualTags, courseTags);
 
         const [result] = await db.query(
-            "INSERT INTO problem_sets (name, description, topic, subtopic, unit, tags, calculator_allowed) VALUES (?, ?, ?, ?, ?, ?, ?)",
-            [cleanName, cleanDescription, cleanTopic, cleanSubtopic, cleanUnit, cleanTags, cleanCalculatorAllowed]
+            "INSERT INTO problem_sets (name, description, course, topic, subtopic, tags, calculator_allowed) VALUES (?, ?, ?, ?, ?, ?, ?)",
+            [cleanName, cleanDescription, cleanCourse, cleanTopic, cleanSubtopic, cleanTags, cleanCalculatorAllowed]
         );
 
         res.status(201).json({
@@ -104,9 +104,9 @@ router.post("/api/problem-sets", auth.requireAdmin, async (req, res) => {
                 id: result.insertId,
                 name: cleanName,
                 description: cleanDescription,
+                course: cleanCourse,
                 topic: cleanTopic,
                 subtopic: cleanSubtopic,
-                unit: cleanUnit,
                 tags: cleanTags,
                 calculatorAllowed: Boolean(cleanCalculatorAllowed)
             }
@@ -122,7 +122,7 @@ router.get("/api/problem-sets/:id", async (req, res) => {
         const { id } = req.params;
 
         const [problemSetRows] = await db.query(
-            "SELECT id, name, description, topic, subtopic, unit, tags, calculator_allowed FROM problem_sets WHERE id = ? LIMIT 1",
+            "SELECT id, name, description, course, topic, subtopic, tags, calculator_allowed FROM problem_sets WHERE id = ? LIMIT 1",
             [id]
         );
 
@@ -153,6 +153,26 @@ router.get("/api/problem-sets/:id", async (req, res) => {
     } catch (err) {
         console.error(err);
         res.status(500).json({ message: "Failed to load problem set." });
+    }
+});
+
+router.get("/api/problems/:id", publicReadLimiter, async (req, res) => {
+    try {
+        const { id } = req.params;
+
+        const [rows] = await db.query(
+            "SELECT id, problem_set_id FROM problems WHERE id = ? LIMIT 1",
+            [id]
+        );
+
+        if (rows.length === 0) {
+            return res.status(404).json({ message: "Problem not found." });
+        }
+
+        res.json({ id: rows[0].id, problemSetId: rows[0].problem_set_id });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ message: "Failed to look up problem." });
     }
 });
 

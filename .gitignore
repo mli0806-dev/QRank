@@ -4,3 +4,5 @@
 node_modules
 .vercel
 sync-prod.sh
+migrate-prod.sh
+.DS_Store
