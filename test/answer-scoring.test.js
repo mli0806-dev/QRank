@@ -78,11 +78,18 @@ test('answer scoring via /api/problem-sets/:id/check', async (t) => {
         assert.equal(third.body.results[frProblemId], false);
     });
 
-    await t.test('missing answer is marked incorrect, not a crash', async () => {
-        const { status, body } = await check({});
+    await t.test('blank answer is marked incorrect, not a crash', async () => {
+        const { status, body } = await check({ [mcProblemId]: '', [frProblemId]: '' });
         assert.equal(status, 200);
         assert.equal(body.results[mcProblemId], false);
         assert.equal(body.results[frProblemId], false);
+    });
+
+    await t.test('checking one problem does not leak answers for problems not submitted', async () => {
+        const { body } = await check({ [mcProblemId]: '4' });
+        assert.equal(body.results[mcProblemId], true);
+        assert.equal(frProblemId in body.results, false);
+        assert.equal(frProblemId in body.correctAnswers, false);
     });
 
     await t.test('no points are awarded when assessment is disabled', async () => {

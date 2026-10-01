@@ -11,28 +11,37 @@
 <body>
     <nav class="headerbox"></nav>
     <main>
-        <h2 class="welcometext">Welcome to QRank!</h2>
-        <p class="intro">QRank is a free and open source problem bank and competition platform made by students, for students.</p>
-        <p class="intro">Trusted by <span id="user-count">0</span>+ users worldwide</p>
-        <p class="body">We've all been in the situation where we just need a few more practice problems to understand a topic or prepare for an exam. Most students default to the thousands of paywalled problem sets of external tutoring programs, or the repetitive and limited problem sets of established edtech platforms. But who needs them when you can get thousands of explained problems for free and have fun along the way?</p>
-        <p class="intro" id="firstTimeNotice" style="margin-bottom: 0;">First time user? <a href="/login/" class="intro firsttimelink">Sign up</a> to save your progress</p>
-        <div class="anchorboxes">
-            <a href="/courses/" class="titleboxes" id="courses-count-link">
-                <h3 class="boxtitle">Courses</h3>
-                <p class="boxbody">Explore our comprehensive collection of courses, topics and subtopics.</p>
-            </a>
-            <a href="/problems/" class="titleboxes" id="problems-count-link">
-                <h3 class="boxtitle">Problems</h3>
-                <p class="boxbody">Access a diverse set of problems to practice and improve your skills.</p>
-            </a>
-            <a href="/competitions/" class="titleboxes">
-                <h3 class="boxtitle">Competitions</h3>
-                <p class="boxbody">Participate in competitions to test your skills and climb the rankings.</p>
-            </a>
-            <a href="/rankings/" class="titleboxes">
-                <h3 class="boxtitle">Rankings</h3>
-                <p class="boxbody">Check out the rankings to see how you stand against other users.</p>
-            </a>
+        <div id="home-intro">
+            <h2 class="welcometext">Welcome to QRank!</h2>
+            <p class="intro">QRank is a free and open source problem bank and competition platform made by students, for students.</p>
+            <p class="intro">Trusted by <span id="user-count">0</span>+ users worldwide</p>
+            <p class="body">We've all been in the situation where we just need a few more practice problems to understand a topic or prepare for an exam. Most students default to the thousands of paywalled problem sets of external tutoring programs, or the repetitive and limited problem sets of established edtech platforms. But who needs them when you can get thousands of explained problems for free and have fun along the way?</p>
+            <p class="intro" id="firstTimeNotice" style="margin-bottom: 0;">First time user? <a href="/login/" class="intro firsttimelink">Sign up</a> to save your progress</p>
+            <div class="anchorboxes">
+                <a href="/courses/" class="titleboxes" id="courses-count-link">
+                    <h3 class="boxtitle">Courses</h3>
+                    <p class="boxbody">Explore our comprehensive collection of courses, topics and subtopics.</p>
+                </a>
+                <a href="/problems/" class="titleboxes" id="problems-count-link">
+                    <h3 class="boxtitle">Problems</h3>
+                    <p class="boxbody">Access a diverse set of problems to practice and improve your skills.</p>
+                </a>
+                <a href="/competitions/" class="titleboxes">
+                    <h3 class="boxtitle">Competitions</h3>
+                    <p class="boxbody">Participate in competitions to test your skills and climb the rankings.</p>
+                </a>
+                <a href="/rankings/" class="titleboxes">
+                    <h3 class="boxtitle">Rankings</h3>
+                    <p class="boxbody">Check out the rankings to see how you stand against other users.</p>
+                </a>
+            </div>
+        </div>
+        <div id="home-dashboard" class="hidden">
+            <div class="dashboardheader">
+                <h2 class="welcometext">Dashboard</h2>
+                <a href="#" id="dashboard-edit-profile-link" class="authsubmit">Edit Profile</a>
+            </div>
+            <div class="problemsetresults" id="dashboard-in-progress"></div>
         </div>
     </main>
     <footer class="sitefooter"></footer>

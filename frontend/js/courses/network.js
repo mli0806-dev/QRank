@@ -459,7 +459,7 @@ function initCourseNetworkMap(courses = []) {
         event.preventDefault();
         try {
             wrapper.setPointerCapture(event.pointerId);
-        } catch (error) {
+        } catch {
         }
         activePointers.set(event.pointerId, { x: event.clientX, y: event.clientY });
 

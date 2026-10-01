@@ -1,20 +1,27 @@
 import { escapeHtml, renderMarkdown } from '../core/dom.js';
 
 function renderProblemSetCard(problemSet, options = {}) {
-    const { showBreadcrumb = false, showCalculatorTag = false } = options;
+    const { showBreadcrumb = false, showCalculatorTag = false, progressCorrect = null, progressTotal = null } = options;
     const breadcrumb = showBreadcrumb
         ? `<p class="problemsetmeta">${escapeHtml([problemSet.course, problemSet.topic, problemSet.subtopic].filter(Boolean).join(" / ") || "Course not assigned")}</p>`
         : '';
     const calculatorTag = showCalculatorTag && problemSet.calculatorAllowed
         ? '<p class="tag">Calculator approved</p>'
         : '';
+    const privateTag = problemSet.isPublic === false
+        ? '<p class="tag">Private</p>'
+        : '';
+    const progress = progressTotal !== null
+        ? `<p class="problemsetprogresstag">${escapeHtml(progressCorrect)}/${escapeHtml(progressTotal)}</p>`
+        : '';
 
     return `
         <a class="problemsetcard" href="/problems/${encodeURIComponent(problemSet.id)}">
+            ${progress}
             <p class="problemsetid">Problem Set ID #${escapeHtml(problemSet.id)}</p>
             <h2>${escapeHtml(problemSet.name)}</h2>
             <div>${renderMarkdown(problemSet.description, "No description available yet.")}</div>
-            ${breadcrumb}${calculatorTag}<div class="problemsettags">
+            ${breadcrumb}${calculatorTag}${privateTag}<div class="problemsettags">
                 ${(problemSet.tags || []).map((tag) => `<span class="problemsettag">${escapeHtml(tag)}</span>`).join('')}
             </div>
         </a>

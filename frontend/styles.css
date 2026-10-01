@@ -62,12 +62,9 @@ h2 {
   --fs-2: 18px;
   --fs-3: 22px;
   --fs-4: 32px;
-  --color-success: rgb(60, 160, 90);
-  --color-success-bg: rgba(60, 160, 90, 0.12);
-  --color-error: rgb(190, 70, 70);
-  --color-error-bg: rgba(190, 70, 70, 0.12);
+  --color-success: rgb(30, 200, 30);
+  --color-error: rgb(200, 30, 30);
   --border-default: 1px solid var(--border);
-  --focus-ring-map: rgba(100, 149, 237, 0.8);
   --scrim: rgba(0, 0, 0, 0.5);
   --icon-arrow: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8' fill='none'%3E%3Cpath d='M1 1L6 6L11 1' stroke='black' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
 }
@@ -175,6 +172,21 @@ h2 {
   margin-top: 50px;
   font-size: var(--fs-4);
   font-weight: 500;
+}
+
+.dashboardheader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+  max-width: calc(800px + (2 * var(--space-4)) + 2px);
+  margin: 50px auto 0;
+  flex-wrap: wrap;
+}
+
+.dashboardheader .welcometext {
+  margin: 0;
+  text-align: left;
 }
 
 .intro {
@@ -295,6 +307,11 @@ main.coursebg {
   padding: 10px 14px;
   border: var(--border-default);
   opacity: 0.9;
+}
+
+#edit-problem-set-button, #start-over-button {
+  display: block;
+  width: fit-content;
 }
 
 .competitiontakelink {
@@ -471,11 +488,6 @@ main.coursebg {
   justify-content: center;
 }
 
-.network-node:focus-visible {
-  outline: 1px solid var(--focus-ring-map);
-  outline-offset: 2px;
-}
-
 .network-node.topic {
   font-weight: 500;
 }
@@ -616,7 +628,7 @@ main.coursebg {
   display: flex;
   flex: none;
   flex-direction: column;
-  gap: var(--space-3);
+  gap: var(--space-4);
   height: calc(100vh - 160px);
   overflow: hidden;
   width: 100%;
@@ -661,6 +673,17 @@ main.coursebg {
 .problemsetcard {
   padding: var(--space-3);
   gap: var(--space-1);
+  position: relative;
+}
+
+.problemsetcard .problemsetprogresstag {
+  position: absolute;
+  top: var(--space-3);
+  right: var(--space-3);
+  margin: 0;
+  font-size: var(--fs-3);
+  font-weight: 500;
+  line-height: 1;
 }
 
 .suggestionactions button, .markdownbutton, .desmosmodaltab, .resetbutton, .authsubmit {
@@ -688,18 +711,33 @@ main.coursebg {
   padding: var(--space-4);
   gap: var(--space-2);
   height: 100%;
+  box-sizing: border-box;
+}
+
+.problemtakeitem:has(.problemtakescroll) {
+  background-color: transparent;
+  border: none;
+  padding: 0;
+}
+
+.problemtakescroll {
+  background-color: var(--card);
+  border: var(--border-default);
+  padding: var(--space-4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  flex: 1;
+  min-height: 0;
   overflow-y: auto;
   box-sizing: border-box;
 }
 
-.problemtakeitem.problemtakecorrect {
-  border-color: var(--color-success);
-  background-image: linear-gradient(var(--color-success-bg), var(--color-success-bg));
-}
-
-.problemtakeitem.problemtakeincorrect {
-  border-color: var(--color-error);
-  background-image: linear-gradient(var(--color-error-bg), var(--color-error-bg));
+.problemtakecontrols {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-2);
 }
 
 .problemtakeprompt {
@@ -747,23 +785,17 @@ main.coursebg {
   border: var(--border-default);
 }
 
-.problemtakechoice:has(.problemtakechoiceinput:checked) {
-  border-color: var(--border-strong);
-}
-
 .problemtakechoice:has(.problemtakechoiceinput:focus-visible) {
   outline: 2px solid var(--text);
   outline-offset: 2px;
 }
 
-.problemtakeitem .problemtakechoice.problemtakechoicecorrect {
+.problemtakeinput input.problemtakeanswercorrect {
   border-color: var(--color-success);
-  background-image: linear-gradient(var(--color-success-bg), var(--color-success-bg));
 }
 
-.problemtakeitem .problemtakechoice.problemtakechoiceincorrect {
+.problemtakeinput input.problemtakeanswerincorrect {
   border-color: var(--color-error);
-  background-image: linear-gradient(var(--color-error-bg), var(--color-error-bg));
 }
 
 .problemtakechoice .problemtakechoiceinput {
@@ -787,20 +819,42 @@ main.coursebg {
   font-weight: 500;
 }
 
-.problemtakechoice:has(.problemtakechoiceinput:checked) .problemtakechoiceletter, .problemtocitemactive {
-  border-color: var(--border-strong);
+.problemtakechoice:has(.problemtakechoiceinput:checked) {
+  outline: 1px solid var(--border-strong);
+  outline-offset: 0;
 }
 
-.problemtakeitem .problemtakechoice.problemtakechoicecorrect .problemtakechoiceletter {
-  background-color: var(--color-success);
-  color: var(--bg);
+.problemtocitemactive {
+  outline: 1px solid var(--border-strong);
+  outline-offset: 2px;
+}
+
+.problemtocitem.problemtocitemcorrect {
   border-color: var(--color-success);
 }
 
+.problemtocitem.problemtocitemincorrect {
+  border-color: var(--color-error);
+}
+
+.problemtakeitem .problemtakechoice.problemtakechoicecorrect {
+  border-color: var(--color-success);
+}
+
+.problemtakeitem .problemtakechoice.problemtakechoiceincorrect {
+  border-color: var(--color-error);
+}
+
+.problemtakeitem .problemtakechoice.problemtakechoicecorrect .problemtakechoiceletter {
+  border-color: var(--color-success);
+  background-color: var(--color-success);
+  color: var(--bg);
+}
+
 .problemtakeitem .problemtakechoice.problemtakechoiceincorrect .problemtakechoiceletter {
+  border-color: var(--color-error);
   background-color: var(--color-error);
   color: var(--bg);
-  border-color: var(--color-error);
 }
 
 .problemtoc {
@@ -808,6 +862,45 @@ main.coursebg {
   flex-wrap: wrap;
   gap: var(--space-1);
   margin-top: var(--space-3);
+}
+
+#problem-builder-toc .problemtocitem {
+  cursor: grab;
+}
+
+#problem-builder-toc .problemtocitem.problemtocitemdragging {
+  cursor: grabbing;
+  opacity: 0.5;
+}
+
+#problem-builder-toc .problemtocitem.problemtocitemdragover {
+  border-color: var(--border-strong);
+}
+
+.problemsettimer {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-1);
+  height: 50px;
+  box-sizing: border-box;
+  padding: 0 50px;
+}
+
+.problemsettimer:not(.hidden) + .problemsetdetailpage .problemsetdetailleft,
+.problemsettimer:not(.hidden) + .problemsetdetailpage .problemsetdetailright {
+  padding-top: 0;
+}
+
+.problemsettimerlabel {
+  font-size: var(--fs-1);
+  color: var(--textsec);
+}
+
+.problemsettimervalue {
+  font-size: var(--fs-3);
+  font-variant-numeric: tabular-nums;
+  color: var(--text);
 }
 
 .problemsetdetailpage {
@@ -881,7 +974,9 @@ main.coursebg {
 
 .problemtakenav {
   display: flex;
-  margin-top: auto;
+  align-items: center;
+  gap: var(--space-1);
+  margin-left: auto;
 }
 
 .problemtakenav .topicdetailback {
@@ -891,7 +986,6 @@ main.coursebg {
 .problemtakenavright {
   display: flex;
   gap: var(--space-1);
-  margin-left: auto;
 }
 
 .problemtakeexplanation {
@@ -1582,6 +1676,10 @@ main.coursebg {
   font-size: var(--fs-2);
 }
 
+.suggestionform label.hidden {
+  display: none;
+}
+
 .suggestionform input,
 .suggestionform textarea {
   padding: 12px 14px;
@@ -1737,6 +1835,7 @@ main.coursebg {
 .choice-input {
   flex: 1;
   font-size: var(--fs-2);
+  background-color: var(--card);
 }
 
 .choice-buttons {
@@ -1876,11 +1975,45 @@ main.coursebg {
   .choice-row {
     flex-wrap: wrap;
   }
+
+  .problemsettimer {
+    position: sticky;
+    top: calc(48px + var(--space-2) * 2 + 1px);
+    z-index: 2;
+    padding: 0 var(--space-3);
+    background: var(--bg);
+  }
+
+  #problemsetdetailcontainer {
+    flex-direction: column;
+    height: auto;
+    overflow: visible;
+  }
+
+  #problemsetdetailcontainer .problemsetdetailleft,
+  #problemsetdetailcontainer .problemsetdetailright {
+    width: 100%;
+    padding: var(--space-3);
+    overflow-y: visible;
+  }
+
+  .suggestionform.problemsetdetailpage {
+    flex-direction: column;
+    height: auto;
+    overflow: visible;
+  }
+
+  .suggestionform .problemsetdetailleft,
+  .suggestionform .problemsetdetailright {
+    width: 100%;
+    padding: var(--space-3);
+    overflow-y: visible;
+  }
 }
 
 @media (max-width: 600px) {
   .welcometext {
-    font-size: var(--fs-4);
+    font-size: var(--fs-3);
     margin-top: 32px;
   }
 

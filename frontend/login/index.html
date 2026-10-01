@@ -47,7 +47,7 @@
             <div id="register-error" class="autherrorhidden"></div>
             <form id="register-form" class="authform">
                 <label for="register-username">Username:</label>
-                <input class="inputs" type="text" id="register-username" required placeholder="Sigma">
+                <input class="inputs" type="text" id="register-username" required placeholder="Sigma" maxlength="16" pattern="[A-Za-z0-9._-]{3,16}" title="3-16 characters: letters, numbers, periods, hyphens, and underscores">
                 <label for="register-email">Email Address:</label>
                 <input class="inputs" type="email" id="register-email" required placeholder="tung@sahur.com">
                 <label for="register-password">Password:</label>

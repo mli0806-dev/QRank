@@ -41,6 +41,8 @@ async function loadProblemSetDetail() {
         const { problemSet, problems } = await response.json();
         renderProblemSetDetail(container, problemSetId, problemSet, problems, targetProblemId);
         initProblemSetEditButton(problemSetId);
+        initStartOverButton(problemSetId);
+        initCountdownTimer(problemSet.timeLimitMinutes);
     } catch (error) {
         console.error("Failed to load problem set:", error);
         container.innerHTML = `
@@ -53,12 +55,57 @@ async function loadProblemSetDetail() {
     }
 }
 
+let countdownIntervalId = null;
+
+function formatCountdown(totalSeconds) {
+    const clamped = Math.max(0, totalSeconds);
+    const minutes = Math.floor(clamped / 60);
+    const seconds = clamped % 60;
+    return `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+}
+
+function initCountdownTimer(timeLimitMinutes) {
+    const timerEl = document.getElementById("problem-set-timer");
+    const valueEl = document.getElementById("problem-set-timer-value");
+
+    if (countdownIntervalId) {
+        clearInterval(countdownIntervalId);
+        countdownIntervalId = null;
+    }
+
+    if (!timerEl || !valueEl) {
+        return;
+    }
+
+    if (!timeLimitMinutes) {
+        timerEl.classList.add("hidden");
+        return;
+    }
+
+    let remainingSeconds = timeLimitMinutes * 60;
+    timerEl.classList.remove("hidden");
+    valueEl.textContent = formatCountdown(remainingSeconds);
+
+    countdownIntervalId = setInterval(() => {
+        remainingSeconds -= 1;
+
+        if (remainingSeconds <= 0) {
+            valueEl.textContent = "Time's up";
+            clearInterval(countdownIntervalId);
+            countdownIntervalId = null;
+            return;
+        }
+
+        valueEl.textContent = formatCountdown(remainingSeconds);
+    }, 1000);
+}
+
 function renderProblemSetDetail(container, problemSetId, problemSet, problems, targetProblemId) {
     const tocHtml = problems.length
         ? `
             <div class="problemtoc">
                 ${problems.map((problem, index) => `
-                    <button type="button" class="problemtocitem" data-problem-index="${index}">${index + 1}</button>
+                    <button type="button" class="problemtocitem" data-problem-index="${index}" data-problem-id="${problem.id}">${index + 1}</button>
                 `).join('')}
             </div>
         `
@@ -73,8 +120,10 @@ function renderProblemSetDetail(container, problemSetId, problemSet, problems, t
             <a class="topicdetailback" href="/problems/">Back to Problem Sets</a>
             <h1 class="topicdetailtitle">${escapeHtml(problemSet.name)}</h1>
             <button type="button" id="edit-problem-set-button" class="topicdetailback hidden">Edit this problem set</button>
+            <button type="button" id="start-over-button" class="topicdetailback hidden">Start Over</button>
             <div class="topicdetailtext">${renderMarkdown(problemSet.description, "No description available yet.")}</div>
             ${problemSet.calculatorAllowed ? '<p class="tag">Calculator approved</p>' : ''}
+            ${problemSet.isPublic === false ? '<p class="tag">Private (only visible to you)</p>' : ''}
             ${tocHtml}
         </div>
         <div class="problemsetdetailright">
@@ -93,6 +142,7 @@ function renderProblemSetDetail(container, problemSetId, problemSet, problems, t
             });
             initProblemAnswerState(problem, form);
             initProblemExplainButton(form);
+            restorePriorAttempt(problem);
         }
     });
 
@@ -191,12 +241,67 @@ async function initProblemSetEditButton(problemSetId) {
     });
 }
 
+async function initStartOverButton(problemSetId) {
+    const button = document.getElementById("start-over-button");
+    if (!button) {
+        return;
+    }
+
+    const currentUser = await getCurrentUser();
+    if (!currentUser) {
+        return;
+    }
+
+    button.classList.remove("hidden");
+    button.addEventListener("click", async () => {
+        if (!window.confirm("Reset your progress on this problem set? This can't be undone.")) {
+            return;
+        }
+
+        button.disabled = true;
+        button.textContent = "Resetting...";
+
+        try {
+            const response = await fetch(`/api/problem-sets/${encodeURIComponent(problemSetId)}/reset`, {
+                method: "POST"
+            });
+
+            if (!response.ok) {
+                button.disabled = false;
+                button.textContent = "Start Over";
+                return;
+            }
+
+            window.location.reload();
+        } catch (error) {
+            console.error("Failed to reset problem set progress:", error);
+            button.disabled = false;
+            button.textContent = "Start Over";
+        }
+    });
+}
+
+function updateProblemTocStatus(problemId, isCorrect) {
+    const button = document.querySelector(`.problemtocitem[data-problem-id="${problemId}"]`);
+    if (!button) {
+        return;
+    }
+
+    button.classList.remove("problemtocitemcorrect", "problemtocitemincorrect");
+
+    if (isCorrect === true) {
+        button.classList.add("problemtocitemcorrect");
+    } else if (isCorrect === false) {
+        button.classList.add("problemtocitemincorrect");
+    }
+}
+
 function renderProblem(problem, index, total) {
     const number = index + 1;
 
     const inputHtml = problem.type === "multiple_choice"
-        ? renderChoiceInputs(problem, { interactive: true, namePrefix: `problem-${problem.id}` })
-        : `<input type="text" class="inputs" id="problem-input-${problem.id}" name="problem-${problem.id}" placeholder="Your answer" autocomplete="off">`;
+        ? renderChoiceInputs(problem, { interactive: true, namePrefix: `problem-${problem.id}`, selectedValue: problem.priorAnswer })
+        : `<input type="text" class="inputs" id="problem-input-${problem.id}" name="problem-${problem.id}" placeholder="Your answer" autocomplete="off" value="${escapeHtml(problem.priorAnswer || "")}">`;
 
     const explainButtonHtml = problem.hasExplanation
         ? '<button type="button" class="topicdetailback problemtakeexplainbutton" disabled>Explain</button>'
@@ -204,18 +309,22 @@ function renderProblem(problem, index, total) {
 
     return `
         <form class="problemtakeitem" id="problemtakeform-${problem.id}">
-            <div class="problemtakeprompt"><span class="problemtakenumber">${number}.</span> <span class="problemtakeid">#${escapeHtml(problem.id)}</span> ${renderMarkdown(problem.prompt, "")}</div>
-            <div class="problemtakeinput">${inputHtml}</div>
-            <button type="submit" class="authsubmit" disabled>Check</button>
-            <p class="problemtakefeedback"></p>
-            <div class="problemtakenav">
-                ${index === 0 ? "" : '<button type="button" class="topicdetailback" data-nav="prev">Previous problem</button>'}
-                <div class="problemtakenavright">
-                    ${explainButtonHtml}
-                    ${index === total - 1 ? "" : '<button type="button" class="topicdetailback" data-nav="next">Next problem</button>'}
+            <div class="problemtakescroll">
+                <div class="problemtakeprompt"><span class="problemtakenumber">${number}.</span> <span class="problemtakeid">#${escapeHtml(problem.id)}</span> ${renderMarkdown(problem.prompt, "")}</div>
+                <div class="problemtakeinput">${inputHtml}</div>
+                <p class="problemtakefeedback"></p>
+                ${problem.hasExplanation ? '<p class="problemtakeexplanation hidden"></p>' : ""}
+            </div>
+            <div class="problemtakecontrols">
+                <button type="submit" class="authsubmit" disabled>Check</button>
+                <div class="problemtakenav">
+                    ${index === 0 ? "" : '<button type="button" class="topicdetailback" data-nav="prev">Previous problem</button>'}
+                    <div class="problemtakenavright">
+                        ${explainButtonHtml}
+                        ${index === total - 1 ? "" : '<button type="button" class="topicdetailback" data-nav="next">Next problem</button>'}
+                    </div>
                 </div>
             </div>
-            ${problem.hasExplanation ? '<p class="problemtakeexplanation hidden"></p>' : ""}
         </form>
     `;
 }
@@ -267,6 +376,69 @@ function getSubmittedAnswer(problem) {
     return input ? input.value : "";
 }
 
+function applyProblemResult(item, problem, { isCorrect, correctAnswer, explanationText }) {
+    const explainButton = item.querySelector(".problemtakeexplainbutton");
+    const explanationEl = item.querySelector(".problemtakeexplanation");
+
+    if (explainButton && explanationEl && typeof explanationText === "string" && explanationText.trim() !== "") {
+        explainButton.disabled = false;
+        explanationEl.innerHTML = renderMarkdown(explanationText, "");
+        renderMathIn(explanationEl);
+    }
+
+    if (problem.type === "multiple_choice") {
+        const normalizedCorrect = typeof correctAnswer === "string"
+            ? correctAnswer.trim().toLowerCase()
+            : null;
+
+        item.querySelectorAll(".problemtakechoice").forEach((choiceEl) => {
+            choiceEl.classList.remove("problemtakechoicecorrect", "problemtakechoiceincorrect");
+
+            const radio = choiceEl.querySelector(".problemtakechoiceinput");
+            if (!radio) {
+                return;
+            }
+
+            if (normalizedCorrect !== null && radio.value.trim().toLowerCase() === normalizedCorrect) {
+                choiceEl.classList.add("problemtakechoicecorrect");
+            }
+            if (radio.checked && !isCorrect) {
+                choiceEl.classList.add("problemtakechoiceincorrect");
+            }
+        });
+    } else {
+        const answerInput = item.querySelector(`#problem-input-${problem.id}`);
+        if (answerInput) {
+            answerInput.classList.toggle("problemtakeanswercorrect", isCorrect);
+            answerInput.classList.toggle("problemtakeanswerincorrect", !isCorrect);
+        }
+    }
+}
+
+function restorePriorAttempt(problem) {
+    if (problem.priorAnswer === null || problem.priorAnswer === undefined) {
+        return;
+    }
+
+    const item = document.getElementById(`problemtakeform-${problem.id}`);
+    if (!item) {
+        return;
+    }
+
+    const feedback = item.querySelector(".problemtakefeedback");
+    if (feedback) {
+        feedback.textContent = problem.priorIsCorrect ? "Correct" : "Incorrect";
+    }
+
+    applyProblemResult(item, problem, {
+        isCorrect: problem.priorIsCorrect,
+        correctAnswer: problem.priorCorrectAnswer,
+        explanationText: problem.priorExplanation
+    });
+
+    updateProblemTocStatus(problem.id, problem.priorIsCorrect);
+}
+
 async function checkSingleProblem(problemSetId, problem) {
     const item = document.getElementById(`problemtakeform-${problem.id}`);
     const feedback = item ? item.querySelector(".problemtakefeedback") : null;
@@ -294,48 +466,21 @@ async function checkSingleProblem(problemSetId, problem) {
         const { results, correctAnswers, explanations, pointsAwarded } = await response.json();
         const isCorrect = Boolean(results[problem.id]);
 
-        const explainButton = item ? item.querySelector(".problemtakeexplainbutton") : null;
-        const explanationEl = item ? item.querySelector(".problemtakeexplanation") : null;
-        const explanationText = explanations ? explanations[problem.id] : undefined;
-
-        if (explainButton && explanationEl && typeof explanationText === "string" && explanationText.trim() !== "") {
-            explainButton.disabled = false;
-            explanationEl.innerHTML = renderMarkdown(explanationText, "");
-            renderMathIn(explanationEl);
-        }
-
         if (feedback) {
             feedback.textContent = isCorrect && pointsAwarded
                 ? `Correct (+${pointsAwarded} QScore)`
                 : (isCorrect ? "Correct" : "Incorrect");
         }
+
         if (item) {
-            if (problem.type === "multiple_choice") {
-                const correctAnswerRaw = correctAnswers ? correctAnswers[problem.id] : undefined;
-                const normalizedCorrect = typeof correctAnswerRaw === "string"
-                    ? correctAnswerRaw.trim().toLowerCase()
-                    : null;
-
-                item.querySelectorAll(".problemtakechoice").forEach((choiceEl) => {
-                    choiceEl.classList.remove("problemtakechoicecorrect", "problemtakechoiceincorrect");
-
-                    const radio = choiceEl.querySelector(".problemtakechoiceinput");
-                    if (!radio) {
-                        return;
-                    }
-
-                    if (normalizedCorrect !== null && radio.value.trim().toLowerCase() === normalizedCorrect) {
-                        choiceEl.classList.add("problemtakechoicecorrect");
-                    }
-                    if (radio.checked && !isCorrect) {
-                        choiceEl.classList.add("problemtakechoiceincorrect");
-                    }
-                });
-            } else {
-                item.classList.toggle("problemtakecorrect", isCorrect);
-                item.classList.toggle("problemtakeincorrect", !isCorrect);
-            }
+            applyProblemResult(item, problem, {
+                isCorrect,
+                correctAnswer: correctAnswers ? correctAnswers[problem.id] : undefined,
+                explanationText: explanations ? explanations[problem.id] : undefined
+            });
         }
+
+        updateProblemTocStatus(problem.id, isCorrect);
     } catch (error) {
         console.error("Failed to check answer:", error);
         if (feedback) {

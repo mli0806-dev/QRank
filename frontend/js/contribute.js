@@ -114,8 +114,10 @@ async function submitProblemSetSuggestion(event) {
     const subtopicInput = document.getElementById("suggest-subtopic");
     const descriptionInput = document.getElementById("suggest-description");
     const calculatorAllowedInput = document.getElementById("suggest-calculator-allowed");
+    const isPrivateInput = document.getElementById("suggest-is-private");
+    const timeLimitInput = document.getElementById("suggest-time-limit");
 
-    if (!tagsSelect || !nameInput || !courseInput || !topicInput || !subtopicInput || !descriptionInput || !calculatorAllowedInput) {
+    if (!tagsSelect || !nameInput || !courseInput || !topicInput || !subtopicInput || !descriptionInput || !calculatorAllowedInput || !isPrivateInput || !timeLimitInput) {
         statusElement.textContent = "This form is missing required fields. Please reload the page.";
         return;
     }
@@ -132,6 +134,8 @@ async function submitProblemSetSuggestion(event) {
         problems: JSON.stringify(problems),
         calculatorAllowed: calculatorAllowedInput.checked,
         assessmentEnabled: document.getElementById("suggest-assessment-enabled")?.checked || false,
+        isPublic: !isPrivateInput.checked,
+        timeLimitMinutes: timeLimitInput.value ? Number(timeLimitInput.value) : null,
         submitter: null
     };
 
@@ -264,6 +268,8 @@ async function initContributePage() {
         document.getElementById("suggest-name").value = suggestion.name || "";
         document.getElementById("suggest-description").value = suggestion.description || "";
         document.getElementById("suggest-calculator-allowed").checked = Boolean(suggestion.calculatorAllowed);
+        document.getElementById("suggest-is-private").checked = suggestion.isPublic === false;
+        document.getElementById("suggest-time-limit").value = suggestion.timeLimitMinutes || "";
 
         const assessmentCheckbox = document.getElementById("suggest-assessment-enabled");
         if (assessmentCheckbox) {
@@ -350,6 +356,25 @@ function showProblemBuilderItem(index) {
     });
 }
 
+function moveProblemItem(fromIndex, toIndex) {
+    const items = getProblemBuilderItems();
+
+    if (fromIndex === toIndex || fromIndex < 0 || toIndex < 0 || fromIndex >= items.length || toIndex >= items.length) {
+        return;
+    }
+
+    const movedItem = items[fromIndex];
+    const referenceItem = items[toIndex];
+
+    if (fromIndex < toIndex) {
+        referenceItem.after(movedItem);
+    } else {
+        referenceItem.before(movedItem);
+    }
+
+    refreshProblemBuilder(toIndex);
+}
+
 function refreshProblemBuilderToc() {
     const toc = document.getElementById('problem-builder-toc');
     if (!toc) {
@@ -357,12 +382,41 @@ function refreshProblemBuilderToc() {
     }
 
     toc.innerHTML = getProblemBuilderItems().map((_, index) => `
-        <button type="button" class="problemtocitem" data-problem-index="${index}">${index + 1}</button>
+        <button type="button" class="problemtocitem" data-problem-index="${index}" draggable="true">${index + 1}</button>
     `).join('');
 
     toc.querySelectorAll('.problemtocitem').forEach((button) => {
         button.addEventListener('click', () => {
             showProblemBuilderItem(Number(button.dataset.problemIndex));
+        });
+
+        button.addEventListener('dragstart', (event) => {
+            event.dataTransfer.effectAllowed = 'move';
+            event.dataTransfer.setData('text/plain', button.dataset.problemIndex);
+            button.classList.add('problemtocitemdragging');
+        });
+
+        button.addEventListener('dragend', () => {
+            toc.querySelectorAll('.problemtocitem').forEach((b) => {
+                b.classList.remove('problemtocitemdragging', 'problemtocitemdragover');
+            });
+        });
+
+        button.addEventListener('dragover', (event) => {
+            event.preventDefault();
+            event.dataTransfer.dropEffect = 'move';
+            button.classList.add('problemtocitemdragover');
+        });
+
+        button.addEventListener('dragleave', () => {
+            button.classList.remove('problemtocitemdragover');
+        });
+
+        button.addEventListener('drop', (event) => {
+            event.preventDefault();
+            const fromIndex = Number(event.dataTransfer.getData('text/plain'));
+            const toIndex = Number(button.dataset.problemIndex);
+            moveProblemItem(fromIndex, toIndex);
         });
     });
 }
@@ -388,7 +442,17 @@ function refreshProblemBuilderNav() {
     });
 }
 
+function renumberProblemHeaders() {
+    getProblemBuilderItems().forEach((item, index) => {
+        const heading = item.querySelector('.problem-item-header .aboutustitle');
+        if (heading) {
+            heading.textContent = `Problem ${index + 1}`;
+        }
+    });
+}
+
 function refreshProblemBuilder(activeIndex) {
+    renumberProblemHeaders();
     refreshProblemBuilderToc();
     refreshProblemBuilderNav();
     showProblemBuilderItem(activeIndex);
@@ -511,7 +575,7 @@ function updateProblemItemTypeFields(item) {
     } else {
         if (choiceLabel) {
             choiceLabel.style.display = '';
-            choiceLabel.textContent = 'Answer Choices (select the correct one)';
+            choiceLabel.textContent = 'Answer Choices';
         }
         if (choiceList) {
             choiceList.style.display = '';
@@ -627,7 +691,7 @@ function addProblemItem() {
         <label class="aboutustitle">Prompt</label>
         <textarea class="inputs problem-prompt" rows="4" placeholder="Enter here:" required></textarea>
         <button class="markdownbutton desmostoolbutton${desmosToolEnabled ? '' : ' hidden'}" type="button">Insert Desmos graph</button>
-        <label class="aboutustitle problem-choice-label">Answer Choices (select the correct one)</label>
+        <label class="aboutustitle problem-choice-label">Answer Choices</label>
         <div class="problem-choice-list" data-group-name="${groupName}"></div>
         <div class="choice-buttons">
             <button type="button" class="authsubmit add-choice-button">Add answer choice</button>

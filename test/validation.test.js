@@ -9,6 +9,10 @@ test('registerSchema', () => {
     assert.equal(validation.registerSchema.safeParse({ username: 'valid_user1', email: 'not-an-email', password: 'password123' }).success, false);
     assert.equal(validation.registerSchema.safeParse({ username: 'valid_user1', email: 'a@b.com', password: 'short' }).success, false);
     assert.equal(validation.registerSchema.safeParse({ username: 'valid_user1', email: 'a@b.com', password: 'x'.repeat(129) }).success, false);
+    assert.equal(validation.registerSchema.safeParse({ username: 'x'.repeat(16), email: 'a@b.com', password: 'password123' }).success, true);
+    assert.equal(validation.registerSchema.safeParse({ username: 'x'.repeat(17), email: 'a@b.com', password: 'password123' }).success, false);
+    assert.equal(validation.registerSchema.safeParse({ username: 'a.b-c_d', email: 'a@b.com', password: 'password123' }).success, true);
+    assert.equal(validation.registerSchema.safeParse({ username: 'a!b', email: 'a@b.com', password: 'password123' }).success, false);
 });
 
 test('loginSchema', () => {

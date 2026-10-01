@@ -1,14 +1,16 @@
 import { escapeHtml } from '../core/dom.js';
 
 function renderChoiceInputs(problem, options = {}) {
-    const { interactive = false, namePrefix = null, markCorrect = false } = options;
+    const { interactive = false, namePrefix = null, markCorrect = false, selectedValue = null } = options;
     const choices = Array.isArray(problem.choices) ? problem.choices : [];
 
     return choices.map((choice, index) => {
         const nameAttr = interactive && namePrefix ? `name="${namePrefix}"` : '';
         const valueAttr = interactive ? `value="${escapeHtml(choice)}"` : '';
         const disabledAttr = interactive ? '' : 'disabled';
-        const checkedAttr = markCorrect && choice && choice === problem.answer ? 'checked' : '';
+        const isMarkedCorrect = markCorrect && choice && choice === problem.answer;
+        const isSelected = selectedValue !== null && choice === selectedValue;
+        const checkedAttr = isMarkedCorrect || isSelected ? 'checked' : '';
 
         return `
             <label class="problemtakechoice">

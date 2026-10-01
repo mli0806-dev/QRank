@@ -199,7 +199,7 @@ document.addEventListener("DOMContentLoaded", () => {
                 }
             });
 
-            for (const { container, error, buttonText } of activeButtons) {
+            for (const { container, error } of activeButtons) {
                 if (error) {
                     error.textContent = "";
                     error.classList.add("autherrorhidden");
