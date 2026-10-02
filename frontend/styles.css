@@ -790,7 +790,7 @@ main.coursebg {
 }
 
 .problemtakechoice:has(.problemtakechoiceinput:focus-visible) {
-  outline: 2px solid var(--text);
+  outline: 1px solid var(--text);
   outline-offset: 2px;
 }
 
@@ -825,7 +825,7 @@ main.coursebg {
 
 .problemtakechoice:has(.problemtakechoiceinput:checked) {
   outline: 1px solid var(--border-strong);
-  outline-offset: 0;
+  outline-offset: 2px;
 }
 
 .problemtocitemactive {
@@ -858,6 +858,16 @@ main.coursebg {
 .problemtakeitem .problemtakechoice.problemtakechoiceincorrect .problemtakechoiceletter {
   border-color: var(--color-error);
   background-color: var(--color-error);
+  color: var(--bg);
+}
+
+.problem-item .problemtakechoice:has(.problemtakechoiceinput:checked) {
+  border-color: var(--color-success);
+}
+
+.problem-item .problemtakechoice:has(.problemtakechoiceinput:checked) .problemtakechoiceletter {
+  border-color: var(--color-success);
+  background-color: var(--color-success);
   color: var(--bg);
 }
 
@@ -1715,7 +1725,7 @@ main.coursebg {
 }
 
 .inputs:focus-visible {
-  outline: 2px solid var(--text);
+  outline: 1px solid var(--text);
   outline-offset: 2px;
 }
 
