@@ -297,6 +297,16 @@ router.post("/api/problem-sets/:id/check", publicWriteLimiter, async (req, res) 
 
         const submittedIds = new Set(Object.keys(submitted).map(Number));
 
+        const lockedAttempts = new Map();
+
+        if (viewer && submittedIds.size > 0) {
+            const [priorRows] = await db.query(
+                "SELECT problem_id, is_correct FROM problem_attempts WHERE user_id = ? AND problem_id IN (?)",
+                [viewer.id, [...submittedIds]]
+            );
+            priorRows.forEach((row) => lockedAttempts.set(row.problem_id, row));
+        }
+
         const results = {};
         const correctAnswers = {};
         const explanations = {};
@@ -305,6 +315,20 @@ router.post("/api/problem-sets/:id/check", publicWriteLimiter, async (req, res) 
 
         for (const problem of problemRows) {
             if (!submittedIds.has(problem.id)) {
+                continue;
+            }
+
+            const priorAttempt = lockedAttempts.get(problem.id);
+
+            if (priorAttempt) {
+                results[problem.id] = Boolean(priorAttempt.is_correct);
+                correctAnswers[problem.id] = problem.answer;
+                if (problem.explanation) {
+                    explanations[problem.id] = problem.explanation;
+                }
+                if (priorAttempt.is_correct) {
+                    correctCount += 1;
+                }
                 continue;
             }
 
@@ -329,6 +353,10 @@ router.post("/api/problem-sets/:id/check", publicWriteLimiter, async (req, res) 
 
         if (viewer) {
             for (const problem of problemRows) {
+                if (lockedAttempts.has(problem.id)) {
+                    continue;
+                }
+
                 const submittedAnswer = String(submitted[problem.id] ?? "").trim();
 
                 if (submittedAnswer === "") {

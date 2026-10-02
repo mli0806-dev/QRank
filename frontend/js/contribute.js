@@ -226,7 +226,6 @@ async function initContributePage() {
         addProblemButton.addEventListener("click", addProblemItem);
     }
 
-    initMarkdownToolbar(".markdownbutton[data-markdown]", document.getElementById("suggest-description"));
     initDesmosTool();
     initAssessmentToggle();
 
@@ -689,8 +688,14 @@ function addProblemItem() {
             <option value="free_response">Free Response</option>
         </select>
         <label class="aboutustitle">Prompt</label>
+        <div class="markdowntoolbar">
+            <button class="markdownbutton" type="button" data-markdown="bold">Bold</button>
+            <button class="markdownbutton" type="button" data-markdown="italic">Italic</button>
+            <button class="markdownbutton" type="button" data-markdown="link">Link</button>
+            <button class="markdownbutton" type="button" data-markdown="code">Code</button>
+            <button class="markdownbutton desmostoolbutton${desmosToolEnabled ? '' : ' hidden'}" type="button">Insert Desmos graph</button>
+        </div>
         <textarea class="inputs problem-prompt" rows="4" placeholder="Enter here:" required></textarea>
-        <button class="markdownbutton desmostoolbutton${desmosToolEnabled ? '' : ' hidden'}" type="button">Insert Desmos graph</button>
         <label class="aboutustitle problem-choice-label">Answer Choices</label>
         <div class="problem-choice-list" data-group-name="${groupName}"></div>
         <div class="choice-buttons">
@@ -736,6 +741,8 @@ function addProblemItem() {
     if (subtractChoiceButton) {
         subtractChoiceButton.addEventListener('click', () => removeChoiceRow(template));
     }
+
+    initMarkdownToolbar('.markdownbutton[data-markdown]', template.querySelector('.problem-prompt'), template);
 
     const typeSelect = template.querySelector('.problem-type');
     if (typeSelect) {

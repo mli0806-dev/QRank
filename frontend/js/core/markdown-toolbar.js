@@ -57,8 +57,8 @@ function applyMarkdownToTextarea(textarea, action, remove = false) {
     }
 }
 
-function initMarkdownToolbar(toolbarSelector, textarea) {
-    document.querySelectorAll(toolbarSelector).forEach((button) => {
+function initMarkdownToolbar(toolbarSelector, textarea, root = document) {
+    root.querySelectorAll(toolbarSelector).forEach((button) => {
         button.addEventListener("click", () => applyMarkdownToTextarea(textarea, button.dataset.markdown));
         button.addEventListener("dblclick", (event) => {
             event.preventDefault();

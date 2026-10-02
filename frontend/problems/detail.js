@@ -413,6 +413,24 @@ function applyProblemResult(item, problem, { isCorrect, correctAnswer, explanati
             answerInput.classList.toggle("problemtakeanswerincorrect", !isCorrect);
         }
     }
+
+    lockProblemInputs(item, problem);
+}
+
+function lockProblemInputs(item, problem) {
+    item.querySelectorAll(".problemtakechoiceinput").forEach((radio) => {
+        radio.disabled = true;
+    });
+
+    const answerInput = item.querySelector(`#problem-input-${problem.id}`);
+    if (answerInput) {
+        answerInput.readOnly = true;
+    }
+
+    const submitButton = item.querySelector(".authsubmit");
+    if (submitButton) {
+        submitButton.disabled = true;
+    }
 }
 
 function restorePriorAttempt(problem) {
