@@ -46,6 +46,9 @@ function applyMarkdownToTextarea(textarea, action, remove = false) {
         case "italic":
             insertMarkdownSnippet(textarea, "*", "*", "", remove);
             break;
+        case "underline":
+            insertMarkdownSnippet(textarea, "<u>", "</u>", "", remove);
+            break;
         case "link":
             insertMarkdownSnippet(textarea, "[", "](https://example.com)", "", remove);
             break;
@@ -72,6 +75,7 @@ function renderMarkdownToolbar() {
         <div class="markdowntoolbar">
             <button class="markdownbutton" type="button" data-markdown="bold">Bold</button>
             <button class="markdownbutton" type="button" data-markdown="italic">Italic</button>
+            <button class="markdownbutton" type="button" data-markdown="underline">Underline</button>
             <button class="markdownbutton" type="button" data-markdown="link">Link</button>
             <button class="markdownbutton" type="button" data-markdown="code">Code</button>
         </div>

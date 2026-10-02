@@ -11,6 +11,26 @@ function cleanTimeLimitMinutes(timeLimitMinutes) {
     return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
 }
 
+async function startOrResumeTimer(viewer, problemSetId, timeLimitMinutes) {
+    const totalSeconds = timeLimitMinutes * 60;
+
+    if (!viewer) {
+        return totalSeconds;
+    }
+
+    await db.query(
+        "INSERT IGNORE INTO problem_set_timers (user_id, problem_set_id) VALUES (?, ?)",
+        [viewer.id, problemSetId]
+    );
+
+    const [rows] = await db.query(
+        "SELECT TIMESTAMPDIFF(SECOND, started_at, NOW()) AS elapsed FROM problem_set_timers WHERE user_id = ? AND problem_set_id = ? LIMIT 1",
+        [viewer.id, problemSetId]
+    );
+
+    return Math.max(0, totalSeconds - Number(rows[0]?.elapsed ?? 0));
+}
+
 router.get("/api/problem-sets/count", async (req, res) => {
     try {
         const [rows] = await db.query("SELECT COUNT(*) AS count FROM problem_sets WHERE is_public = 1");
@@ -206,6 +226,9 @@ router.get("/api/problem-sets/:id", async (req, res) => {
         problemSet.isPublic = Boolean(problemSet.is_public);
         problemSet.isOwner = isOwner;
         problemSet.timeLimitMinutes = problemSet.time_limit_minutes;
+        problemSet.timeRemainingSeconds = problemSet.time_limit_minutes
+            ? await startOrResumeTimer(viewer, problemSet.id, problemSet.time_limit_minutes)
+            : null;
 
         const priorAttemptsByProblemId = new Map();
 
@@ -408,6 +431,11 @@ router.post("/api/problem-sets/:id/reset", auth.requireAuth, async (req, res) =>
 
         await db.query(
             "DELETE pa FROM problem_attempts pa JOIN problems p ON p.id = pa.problem_id WHERE p.problem_set_id = ? AND pa.user_id = ?",
+            [id, req.user.id]
+        );
+
+        await db.query(
+            "DELETE FROM problem_set_timers WHERE problem_set_id = ? AND user_id = ?",
             [id, req.user.id]
         );
 

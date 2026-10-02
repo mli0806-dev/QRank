@@ -42,7 +42,7 @@ async function loadProblemSetDetail() {
         renderProblemSetDetail(container, problemSetId, problemSet, problems, targetProblemId);
         initProblemSetEditButton(problemSetId);
         initStartOverButton(problemSetId);
-        initCountdownTimer(problemSet.timeLimitMinutes);
+        initCountdownTimer(problemSet.timeRemainingSeconds);
     } catch (error) {
         console.error("Failed to load problem set:", error);
         container.innerHTML = `
@@ -64,7 +64,7 @@ function formatCountdown(totalSeconds) {
     return `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
 }
 
-function initCountdownTimer(timeLimitMinutes) {
+function initCountdownTimer(timeRemainingSeconds) {
     const timerEl = document.getElementById("problem-set-timer");
     const valueEl = document.getElementById("problem-set-timer-value");
 
@@ -77,13 +77,19 @@ function initCountdownTimer(timeLimitMinutes) {
         return;
     }
 
-    if (!timeLimitMinutes) {
+    if (timeRemainingSeconds === null || timeRemainingSeconds === undefined) {
         timerEl.classList.add("hidden");
         return;
     }
 
-    let remainingSeconds = timeLimitMinutes * 60;
+    let remainingSeconds = timeRemainingSeconds;
     timerEl.classList.remove("hidden");
+
+    if (remainingSeconds <= 0) {
+        valueEl.textContent = "Time's up";
+        return;
+    }
+
     valueEl.textContent = formatCountdown(remainingSeconds);
 
     countdownIntervalId = setInterval(() => {
