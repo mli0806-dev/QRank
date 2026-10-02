@@ -714,6 +714,10 @@ main.coursebg {
   box-sizing: border-box;
 }
 
+.problemtakeitem:not(:has(.problemtakescroll)) {
+  overflow-y: auto;
+}
+
 .problemtakeitem:has(.problemtakescroll) {
   background-color: transparent;
   border: none;
