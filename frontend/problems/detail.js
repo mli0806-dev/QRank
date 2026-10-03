@@ -323,18 +323,16 @@ function renderProblem(problem, index, total) {
                 <div class="problemtakeprompt"><span class="problemtakenumber">${number}.</span> <span class="problemtakeid">#${escapeHtml(problem.id)}</span> ${renderMarkdown(problem.prompt, "")}</div>
                 <div class="problemtakeinput">${inputHtml}</div>
                 <p class="problemtakefeedback"></p>
-                ${problem.hasExplanation ? '<p class="problemtakeexplanation hidden"></p>' : ""}
             </div>
             <div class="problemtakecontrols">
                 <button type="submit" class="authsubmit" disabled>Check</button>
+                ${explainButtonHtml}
                 <div class="problemtakenav">
                     ${index === 0 ? "" : '<button type="button" class="topicdetailback" data-nav="prev">Previous problem</button>'}
-                    <div class="problemtakenavright">
-                        ${explainButtonHtml}
-                        ${index === total - 1 ? "" : '<button type="button" class="topicdetailback" data-nav="next">Next problem</button>'}
-                    </div>
+                    ${index === total - 1 ? "" : '<button type="button" class="topicdetailback" data-nav="next">Next problem</button>'}
                 </div>
             </div>
+            ${problem.hasExplanation ? '<p class="problemtakeexplanation hidden"></p>' : ""}
         </form>
     `;
 }

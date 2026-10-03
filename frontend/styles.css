@@ -710,7 +710,7 @@ main.coursebg {
 .problemtakeitem {
   padding: var(--space-4);
   gap: var(--space-2);
-  height: 100%;
+  min-height: 100%;
   box-sizing: border-box;
 }
 
@@ -731,9 +731,7 @@ main.coursebg {
   display: flex;
   flex-direction: column;
   gap: var(--space-2);
-  flex: 1;
-  min-height: 0;
-  overflow-y: auto;
+  flex: 0 0 auto;
   box-sizing: border-box;
 }
 
@@ -934,6 +932,7 @@ main.coursebg {
   width: 66.667%;
   padding: 50px;
   box-sizing: border-box;
+  overflow-y: auto;
 }
 
 .suggestionform.problemsetdetailpage {
@@ -993,18 +992,15 @@ main.coursebg {
   margin-left: auto;
 }
 
-.problemtakenav .topicdetailback {
+.problemtakecontrols .topicdetailback {
   margin-bottom: 0;
 }
 
-.problemtakenavright {
-  display: flex;
-  gap: var(--space-1);
-}
 
 .problemtakeexplanation {
   margin: 0;
   line-height: 1.5;
+  overflow-y: auto;
 }
 
 .problemsettags {
