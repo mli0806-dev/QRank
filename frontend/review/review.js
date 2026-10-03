@@ -1,5 +1,7 @@
 import { escapeHtml, renderMarkdown, renderMathIn } from '/js/core/dom.js';
 import { getCurrentUser } from '/js/core/auth-state.js';
+import { renderChartsIn } from '/js/chart-render.js';
+import { renderDesmosIn } from '/js/desmos-render.js';
 
 async function loadSuggestions() {
     const container = document.getElementById("suggestionslist");
@@ -43,6 +45,8 @@ function renderSuggestions(container, suggestions) {
 
     container.innerHTML = suggestions.map(renderSuggestion).join('');
     renderMathIn(container);
+    renderChartsIn(container);
+    renderDesmosIn(container);
 
     suggestions.forEach((suggestion) => {
         const card = document.getElementById(`suggestion-${suggestion.id}`);

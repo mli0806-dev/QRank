@@ -71,4 +71,19 @@ function autoResizeTextarea(textarea) {
     textarea.style.height = `${textarea.scrollHeight}px`;
 }
 
-export { slugify, escapeHtml, renderMarkdown, renderMathIn, autoResizeTextarea };
+function insertTextAtCursor(textarea, text) {
+    if (!textarea) {
+        return;
+    }
+
+    const start = textarea.selectionStart ?? textarea.value.length;
+    const end = textarea.selectionEnd ?? textarea.value.length;
+    textarea.value = textarea.value.slice(0, start) + text + textarea.value.slice(end);
+    textarea.focus();
+
+    const cursor = start + text.length;
+    textarea.setSelectionRange(cursor, cursor);
+    textarea.dispatchEvent(new Event("input", { bubbles: true }));
+}
+
+export { slugify, escapeHtml, renderMarkdown, renderMathIn, autoResizeTextarea, insertTextAtCursor };

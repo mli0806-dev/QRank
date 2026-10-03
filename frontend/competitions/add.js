@@ -1,6 +1,7 @@
 import { getCurrentUser } from '/js/core/auth-state.js';
 import { initMarkdownToolbar } from '/js/core/markdown-toolbar.js';
 import { initDesmosTool } from '/js/desmos.js';
+import { initChartTool } from '/js/chart-tool.js';
 import { addProblemItem, serializeProblemItems } from '/js/contribute.js';
 
 function populateTimeSelects(prefix) {
@@ -77,6 +78,7 @@ async function initAddCompetitionPage() {
 
     initMarkdownToolbar(".markdownbutton[data-markdown]", document.getElementById("competition-problemset-description"));
     initDesmosTool();
+    initChartTool();
     addProblemItem();
     populateTimeSelects("start");
     populateTimeSelects("end");

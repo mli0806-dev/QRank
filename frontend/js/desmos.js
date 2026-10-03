@@ -1,39 +1,14 @@
+import { insertTextAtCursor } from './core/dom.js';
+import { getDesmosConfig, loadDesmosScript } from './desmos-render.js';
+
 let desmosToolEnabled = false;
 let desmosApiKeyValue = null;
-let desmosScriptPromise = null;
-
-function loadDesmosScript(apiKey) {
-    if (window.Desmos) {
-        return Promise.resolve();
-    }
-
-    if (desmosScriptPromise) {
-        return desmosScriptPromise;
-    }
-
-    desmosScriptPromise = new Promise((resolve, reject) => {
-        const script = document.createElement("script");
-        script.src = `https://www.desmos.com/api/v1.11/calculator.js?apiKey=${encodeURIComponent(apiKey)}`;
-        script.onload = () => {
-            if (window.Desmos) {
-                resolve();
-            } else {
-                reject(new Error("Desmos failed to initialize."));
-            }
-        };
-        script.onerror = () => reject(new Error("Failed to load the Desmos script."));
-        document.head.appendChild(script);
-    });
-
-    return desmosScriptPromise;
-}
 
 async function initDesmosTool() {
     try {
-        const response = await fetch("/api/desmos-config");
-        const data = await response.json();
+        const data = await getDesmosConfig();
 
-        if (!response.ok || !data.enabled || !data.apiKey) {
+        if (!data) {
             return;
         }
 
@@ -74,21 +49,6 @@ function closeDesmosModal() {
     }
 }
 
-function insertTextAtCursor(textarea, text) {
-    if (!textarea) {
-        return;
-    }
-
-    const start = textarea.selectionStart ?? textarea.value.length;
-    const end = textarea.selectionEnd ?? textarea.value.length;
-    textarea.value = textarea.value.slice(0, start) + text + textarea.value.slice(end);
-    textarea.focus();
-
-    const cursor = start + text.length;
-    textarea.setSelectionRange(cursor, cursor);
-    textarea.dispatchEvent(new Event("input", { bubbles: true }));
-}
-
 function openDesmosModal(targetTextarea) {
     closeDesmosModal();
 
@@ -113,6 +73,7 @@ function openDesmosModal(targetTextarea) {
     document.body.appendChild(overlay);
 
     let calculator = null;
+    let currentMode = "graph";
 
     async function mountCalculator(mode) {
         const mount = document.getElementById("desmosCalculatorMount");
@@ -121,6 +82,7 @@ function openDesmosModal(targetTextarea) {
             return;
         }
 
+        currentMode = mode;
         mount.innerHTML = "";
         if (status) {
             status.textContent = "Loading Desmos...";
@@ -177,19 +139,9 @@ function openDesmosModal(targetTextarea) {
             return;
         }
 
-        const insertImage = (dataUri) => {
-            if (!dataUri) {
-                return;
-            }
-            insertTextAtCursor(targetTextarea, `\n![Desmos graph](${dataUri})\n`);
-            closeDesmosModal();
-        };
-
-        if (typeof calculator.screenshot === "function") {
-            insertImage(calculator.screenshot({ width: 600, height: 400 }));
-        } else if (typeof calculator.asyncScreenshot === "function") {
-            calculator.asyncScreenshot({ width: 600, height: 400 }, insertImage);
-        }
+        const payload = JSON.stringify({ mode: currentMode, state: calculator.getState() });
+        insertTextAtCursor(targetTextarea, `\n\`\`\`desmos\n${payload}\n\`\`\`\n`);
+        closeDesmosModal();
     });
 
     mountCalculator("graph");

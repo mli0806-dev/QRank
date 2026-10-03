@@ -1,6 +1,8 @@
 import { escapeHtml, renderMarkdown, renderMathIn } from '/js/core/dom.js';
 import { getCurrentUser } from '/js/core/auth-state.js';
 import { renderChoiceInputs } from '/js/problem-sets/choice-render.js';
+import { renderChartsIn } from '/js/chart-render.js';
+import { renderDesmosIn } from '/js/desmos-render.js';
 
 async function loadProblemSetDetail() {
     const container = document.getElementById("problemsetdetailcontainer");
@@ -138,6 +140,8 @@ function renderProblemSetDetail(container, problemSetId, problemSet, problems, t
     `;
 
     renderMathIn(container);
+    renderChartsIn(container);
+    renderDesmosIn(container);
 
     problems.forEach((problem) => {
         const form = document.getElementById(`problemtakeform-${problem.id}`);

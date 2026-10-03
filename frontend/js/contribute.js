@@ -1,7 +1,10 @@
-import { escapeHtml, renderMarkdown, renderMathIn } from './core/dom.js';
+import { escapeHtml, renderMarkdown, renderMathIn, autoResizeTextarea } from './core/dom.js';
 import { getCurrentUser } from './core/auth-state.js';
 import { initMarkdownToolbar } from './core/markdown-toolbar.js';
 import { initDesmosTool, desmosToolEnabled } from './desmos.js';
+import { initChartTool } from './chart-tool.js';
+import { renderChartsIn } from './chart-render.js';
+import { renderDesmosIn } from './desmos-render.js';
 import { renderChoiceInputs } from './problem-sets/choice-render.js';
 
 async function initSuggestionFormSelects(preselect = null) {
@@ -227,6 +230,7 @@ async function initContributePage() {
     }
 
     initDesmosTool();
+    initChartTool();
     initAssessmentToggle();
 
     if (currentUser.role === "admin") {
@@ -346,9 +350,15 @@ function getProblemBuilderItems() {
 }
 
 function showProblemBuilderItem(index) {
-    getProblemBuilderItems().forEach((item, itemIndex) => {
+    const items = getProblemBuilderItems();
+
+    items.forEach((item, itemIndex) => {
         item.classList.toggle('hidden', itemIndex !== index);
     });
+
+    if (items[index]) {
+        items[index].querySelectorAll('.choice-input').forEach((input) => autoResizeTextarea(input));
+    }
 
     document.querySelectorAll('#problem-builder-toc .problemtocitem').forEach((button) => {
         button.classList.toggle('problemtocitemactive', Number(button.dataset.problemIndex) === index);
@@ -500,8 +510,12 @@ function createChoiceRow(groupName) {
             <input type="radio" name="${groupName}" class="problemtakechoiceinput" title="Mark as the correct answer" required>
             <span class="choice-letter-label"></span>
         </label>
-        <input class="inputs choice-input" type="text" placeholder="Choice" required>
+        <textarea class="inputs choice-input" rows="1" placeholder="Choice" required></textarea>
     `;
+
+    const input = row.querySelector('.choice-input');
+    input.addEventListener('input', () => autoResizeTextarea(input));
+
     return row;
 }
 
@@ -652,6 +666,8 @@ function openProblemPreview(item) {
     `;
     document.body.appendChild(overlay);
     renderMathIn(overlay);
+    renderChartsIn(overlay);
+    renderDesmosIn(overlay);
 
     overlay.querySelector('.problempreviewclose').addEventListener('click', closeProblemPreview);
     overlay.addEventListener('click', (event) => {
@@ -695,6 +711,7 @@ function addProblemItem() {
             <button class="markdownbutton" type="button" data-markdown="link">Link</button>
             <button class="markdownbutton" type="button" data-markdown="code">Code</button>
             <button class="markdownbutton desmostoolbutton${desmosToolEnabled ? '' : ' hidden'}" type="button">Insert Desmos graph</button>
+            <button class="markdownbutton charttoolbutton" type="button">Insert Chart.js chart</button>
         </div>
         <textarea class="inputs problem-prompt" rows="4" placeholder="Enter here:" required></textarea>
         <label class="aboutustitle problem-choice-label">Answer Choices</label>

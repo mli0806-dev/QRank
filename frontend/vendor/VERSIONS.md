@@ -14,6 +14,13 @@ These libraries are checked into git as static files rather than installed via n
 - Source: https://github.com/cure53/DOMPurify
 - Confirmed via: header comment at the top of the file, which also links the exact tagged release (`github.com/cure53/DOMPurify/blob/3.4.14/LICENSE`)
 
+## chart.umd.min.js
+- Version: Chart.js 4.5.0
+- License: MIT
+- Source: https://github.com/chartjs/Chart.js
+- Confirmed via: header comment at the top of the file (`Chart.js v4.5.0`)
+- Loaded lazily, only when the "Insert Chart.js chart" authoring modal is opened — it is not referenced by any page's `<script>` tags, since inserted charts are stored as PNG data URIs and need no library to display.
+
 ## katex/ (katex.min.js, katex.min.css, auto-render.min.js, fonts/*.woff2)
 - Version: 0.18.5
 - License: MIT (see `katex/LICENSE`)

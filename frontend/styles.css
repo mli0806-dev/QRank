@@ -686,7 +686,7 @@ main.coursebg {
   line-height: 1;
 }
 
-.suggestionactions button, .markdownbutton, .desmosmodaltab, .resetbutton, .authsubmit {
+.suggestionactions button, .markdownbutton, .desmosmodaltab, .chartmodaltab, .resetbutton, .authsubmit {
   border: var(--border-default);
 }
 
@@ -1111,7 +1111,8 @@ main.coursebg {
   width: fit-content;
 }
 
-.desmosmodaloverlay {
+.desmosmodaloverlay,
+.chartmodaloverlay {
   position: fixed;
   inset: 0;
   background: var(--scrim);
@@ -1135,7 +1136,8 @@ main.coursebg {
   box-sizing: border-box;
 }
 
-.desmosmodalheader {
+.desmosmodalheader,
+.chartmodalheader {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -1148,7 +1150,8 @@ main.coursebg {
   gap: var(--space-1);
 }
 
-.desmosmodaltab {
+.desmosmodaltab,
+.chartmodaltab {
   background: var(--bg);
   color: var(--text);
   font-family: inherit;
@@ -1157,12 +1160,14 @@ main.coursebg {
   cursor: pointer;
 }
 
-.desmosmodaltabactive {
+.desmosmodaltabactive,
+.chartmodaltabactive {
   background: var(--card);
   font-weight: 500;
 }
 
-.desmosmodalclose {
+.desmosmodalclose,
+.chartmodalclose {
   border: none;
   background: none;
   color: var(--text);
@@ -1179,18 +1184,106 @@ main.coursebg {
   background-color: white;
 }
 
-.desmosmodalstatus {
+.desmosmodalstatus,
+.chartmodalstatus {
   padding: 0 16px;
   font-size: var(--fs-1);
   color: var(--textsec);
 }
 
-.desmosmodalactions {
+.desmosmodalactions,
+.chartmodalactions {
   display: flex;
   justify-content: flex-end;
   padding: 12px 16px;
   border-top: 1px solid var(--border);
 }
+
+.desmosfigure {
+  position: relative;
+  height: 320px;
+  max-width: 100%;
+  margin: var(--space-2) 0;
+  background-color: white;
+  border: var(--border-default);
+  box-sizing: border-box;
+}
+
+.chartfigure {
+  position: relative;
+  height: 280px;
+  max-width: 100%;
+  margin: var(--space-2) 0;
+  padding: var(--space-1);
+  background-color: white;
+  border: var(--border-default);
+  box-sizing: border-box;
+}
+
+
+.chartmodal {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  max-width: 700px;
+  max-height: 100%;
+  background-color: var(--card);
+  border: var(--border-default);
+  box-sizing: border-box;
+}
+
+
+.chartmodaltabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+}
+
+
+
+
+.chartmodalpreview {
+  height: 240px;
+  flex-shrink: 0;
+  padding: var(--space-2);
+  background-color: white;
+}
+
+.chartmodalfields {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  padding: var(--space-2) 16px;
+  overflow-y: auto;
+}
+
+.chartdatasets {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.chartdatasetrow {
+  display: flex;
+  gap: var(--space-1);
+}
+
+.chartdatasetlabel {
+  flex: 1;
+  min-width: 0;
+}
+
+.chartdatasetvalues {
+  flex: 2;
+  min-width: 0;
+}
+
+.chartdatasetremove {
+  flex-shrink: 0;
+  padding: 6px 12px;
+}
+
+
 
 .problempreviewoverlay {
   position: fixed;
@@ -1850,6 +1943,13 @@ main.coursebg {
   flex: 1;
   font-size: var(--fs-2);
   background-color: var(--card);
+}
+
+.suggestionform .choice-input {
+  min-width: 0;
+  min-height: 0;
+  resize: none;
+  overflow-y: hidden;
 }
 
 .choice-buttons {
