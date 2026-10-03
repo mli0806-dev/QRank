@@ -1079,6 +1079,7 @@ main.coursebg {
   overflow-y: hidden;
   padding: var(--space-1);
   line-height: 1.5;
+  box-sizing: border-box;
 }
 
 .profilebiooutput {
@@ -1950,6 +1951,7 @@ main.coursebg {
   min-height: 0;
   resize: none;
   overflow-y: hidden;
+  box-sizing: border-box;
 }
 
 .choice-buttons {

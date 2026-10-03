@@ -94,6 +94,16 @@ async function renderDesmosIn(root) {
 
         const wrapper = document.createElement('div');
         wrapper.className = 'desmosfigure';
+
+        const viewport = parsed.state && parsed.state.graph ? parsed.state.graph.viewport : null;
+        const spanX = viewport ? viewport.xmax - viewport.xmin : 0;
+        const spanY = viewport ? viewport.ymax - viewport.ymin : 0;
+
+        if (Number.isFinite(spanX) && Number.isFinite(spanY) && spanX > 0 && spanY > 0) {
+            wrapper.style.aspectRatio = `${spanX} / ${spanY}`;
+            wrapper.style.height = 'auto';
+        }
+
         host.replaceWith(wrapper);
 
         try {
