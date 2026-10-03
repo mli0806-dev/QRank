@@ -31,30 +31,50 @@ function ensureMarkdownLinkHook() {
     markdownLinkHookInstalled = true;
 }
 
-function padTableDelimiters(text) {
+function normalizeMarkdownTables(text) {
     const lines = text.split("\n");
+    const isPipeRow = (line) => {
+        const trimmed = line.trim();
+        return trimmed.length > 1 && trimmed.startsWith("|") && trimmed.endsWith("|");
+    };
     const countCells = (line) => line.trim().replace(/^\||\|$/g, "").split("|").length;
-    const isDelimiterRow = (line) => line.includes("|") && /^\s*\|?(\s*:?-+:?\s*\|)*\s*:?-+:?\s*\|?\s*$/.test(line);
+    const isDelimiterRow = (line) => isPipeRow(line) && /^\s*\|(\s*:?-+:?\s*\|)+\s*$/.test(line);
+    const makeDelimiter = (cells) => `| ${Array(cells).fill("---").join(" | ")} |`;
+
+    const output = [];
     let inFence = false;
 
     for (let index = 0; index < lines.length; index += 1) {
-        if (/^\s*(```|~~~)/.test(lines[index])) {
+        const line = lines[index];
+
+        if (/^\s*(```|~~~)/.test(line)) {
             inFence = !inFence;
+            output.push(line);
             continue;
         }
 
-        if (inFence || index === 0 || !isDelimiterRow(lines[index]) || !lines[index - 1].includes("|")) {
+        output.push(line);
+
+        if (inFence || !isPipeRow(line) || isPipeRow(lines[index - 1] || "")) {
             continue;
         }
 
-        const headerCells = countCells(lines[index - 1]);
+        const next = lines[index + 1];
 
-        if (headerCells > countCells(lines[index])) {
-            lines[index] = `| ${Array(headerCells).fill("---").join(" | ")} |`;
+        if (next === undefined) {
+            continue;
+        }
+
+        if (isDelimiterRow(next)) {
+            if (countCells(line) > countCells(next)) {
+                lines[index + 1] = makeDelimiter(countCells(line));
+            }
+        } else if (isPipeRow(next)) {
+            output.push(makeDelimiter(countCells(line)));
         }
     }
 
-    return lines.join("\n");
+    return output.join("\n");
 }
 
 function renderMarkdown(value, emptyFallback = "No bio yet.") {
@@ -69,7 +89,7 @@ function renderMarkdown(value, emptyFallback = "No bio yet.") {
     }
 
     ensureMarkdownLinkHook();
-    return DOMPurify.sanitize(marked.parse(padTableDelimiters(text), { breaks: true }));
+    return DOMPurify.sanitize(marked.parse(normalizeMarkdownTables(text), { breaks: true }));
 }
 
 function renderMathIn(element) {
