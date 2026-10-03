@@ -31,6 +31,32 @@ function ensureMarkdownLinkHook() {
     markdownLinkHookInstalled = true;
 }
 
+function padTableDelimiters(text) {
+    const lines = text.split("\n");
+    const countCells = (line) => line.trim().replace(/^\||\|$/g, "").split("|").length;
+    const isDelimiterRow = (line) => line.includes("|") && /^\s*\|?(\s*:?-+:?\s*\|)*\s*:?-+:?\s*\|?\s*$/.test(line);
+    let inFence = false;
+
+    for (let index = 0; index < lines.length; index += 1) {
+        if (/^\s*(```|~~~)/.test(lines[index])) {
+            inFence = !inFence;
+            continue;
+        }
+
+        if (inFence || index === 0 || !isDelimiterRow(lines[index]) || !lines[index - 1].includes("|")) {
+            continue;
+        }
+
+        const headerCells = countCells(lines[index - 1]);
+
+        if (headerCells > countCells(lines[index])) {
+            lines[index] = `| ${Array(headerCells).fill("---").join(" | ")} |`;
+        }
+    }
+
+    return lines.join("\n");
+}
+
 function renderMarkdown(value, emptyFallback = "No bio yet.") {
     const text = String(value || "").trim();
 
@@ -43,7 +69,7 @@ function renderMarkdown(value, emptyFallback = "No bio yet.") {
     }
 
     ensureMarkdownLinkHook();
-    return DOMPurify.sanitize(marked.parse(text, { breaks: true }));
+    return DOMPurify.sanitize(marked.parse(padTableDelimiters(text), { breaks: true }));
 }
 
 function renderMathIn(element) {
