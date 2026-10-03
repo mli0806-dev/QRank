@@ -1210,6 +1210,27 @@ main.coursebg {
   box-sizing: border-box;
 }
 
+table {
+  display: block;
+  width: fit-content;
+  max-width: 100%;
+  overflow-x: auto;
+  border-collapse: collapse;
+  margin: var(--space-2) 0;
+  font-size: var(--fs-2);
+}
+
+th, td {
+  border: var(--border-default);
+  padding: 8px 12px;
+  text-align: left;
+}
+
+th {
+  background-color: var(--card);
+  font-weight: 500;
+}
+
 .chartfigure {
   position: relative;
   height: 280px;

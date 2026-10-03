@@ -710,6 +710,7 @@ function addProblemItem() {
             <button class="markdownbutton" type="button" data-markdown="underline">Underline</button>
             <button class="markdownbutton" type="button" data-markdown="link">Link</button>
             <button class="markdownbutton" type="button" data-markdown="code">Code</button>
+            <button class="markdownbutton" type="button" data-markdown="table">Table</button>
             <button class="markdownbutton desmostoolbutton${desmosToolEnabled ? '' : ' hidden'}" type="button">Insert Desmos graph</button>
             <button class="markdownbutton charttoolbutton" type="button">Insert Chart.js chart</button>
         </div>

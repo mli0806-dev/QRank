@@ -1,3 +1,12 @@
+import { insertTextAtCursor } from './dom.js';
+
+const TABLE_SNIPPET = `
+| Column A | Column B |
+| --- | --- |
+|  |  |
+|  |  |
+`;
+
 function insertMarkdownSnippet(textarea, prefix, suffix, placeholder, remove = false) {
     if (!textarea) {
         return;
@@ -55,6 +64,11 @@ function applyMarkdownToTextarea(textarea, action, remove = false) {
         case "code":
             insertMarkdownSnippet(textarea, "`", "`", "", remove);
             break;
+        case "table":
+            if (!remove) {
+                insertTextAtCursor(textarea, TABLE_SNIPPET);
+            }
+            break;
         default:
             break;
     }
@@ -78,6 +92,7 @@ function renderMarkdownToolbar() {
             <button class="markdownbutton" type="button" data-markdown="underline">Underline</button>
             <button class="markdownbutton" type="button" data-markdown="link">Link</button>
             <button class="markdownbutton" type="button" data-markdown="code">Code</button>
+            <button class="markdownbutton" type="button" data-markdown="table">Table</button>
         </div>
     `;
 }
