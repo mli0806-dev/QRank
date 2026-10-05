@@ -1,4 +1,5 @@
 import { escapeHtml, renderMarkdown, autoResizeTextarea } from './core/dom.js';
+import { renderRankBadge } from './core/rank-badge.js';
 import { getCurrentUser } from './core/auth-state.js';
 import { initMarkdownToolbar, renderMarkdownToolbar } from './core/markdown-toolbar.js';
 
@@ -57,7 +58,7 @@ async function renderProfilePage() {
 
         container.innerHTML = `
             <div class="topicdetail">
-                <h1 class="topicdetailtitle">${escapeHtml(user.username)}</h1>
+                <h1 class="topicdetailtitle profileheading">${escapeHtml(user.username)}${renderRankBadge(user.rank)}</h1>
                 <div class="profiledetailpanel">
                     <p class="topicdetailtext"><span>User ID:</span> ${escapeHtml(user.displayId)}</p>
                     <p class="topicdetailtext"><span>QScore:</span> ${escapeHtml(user.qscore)}</p>

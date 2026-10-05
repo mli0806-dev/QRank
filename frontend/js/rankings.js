@@ -1,4 +1,5 @@
 import { escapeHtml } from './core/dom.js';
+import { renderRankBadge } from './core/rank-badge.js';
 
 function initUserSearch() {
     const form = document.getElementById("user-search-form");
@@ -39,6 +40,7 @@ async function loadLeaderboard() {
         list.innerHTML = data.leaderboard.map((row) => `
             <li class="leaderboarditem">
                 <span class="leaderboardplacement">#${escapeHtml(row.placement)}</span>
+                ${renderRankBadge(row.rank)}
                 <a class="leaderboardusername" href="/profile/${encodeURIComponent(row.username)}">${escapeHtml(row.username)}</a>
                 <span class="leaderboardid">ID ${escapeHtml(row.displayId)}</span>
                 <span class="leaderboardscore">${escapeHtml(row.qscore)} QScore</span>

@@ -596,6 +596,24 @@ main.coursebg {
   gap: var(--space-1);
 }
 
+
+
+
+
+
+
+
+.profileheading {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+.rankbadge {
+  image-rendering: pixelated;
+  vertical-align: middle;
+}
+
 .leaderboarditem {
   display: flex;
   align-items: center;
@@ -606,8 +624,8 @@ main.coursebg {
 
 .leaderboardplacement {
   font-weight: 500;
-  width: 40px;
   flex-shrink: 0;
+  font-variant-numeric: tabular-nums;
 }
 
 .leaderboardusername {
