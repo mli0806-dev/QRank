@@ -1,5 +1,6 @@
 import { escapeHtml, slugify } from '../core/dom.js';
 import { renderProblemSetCard } from '../problem-sets/search.js';
+import { initTopicResources } from './resources.js';
 
 function toggleDropdown(button) {
     const dropdown = button.parentElement.nextElementSibling
@@ -230,6 +231,7 @@ async function renderTopicDetail(courses, courseSlug, topicSlug) {
                         <h3 class="topicdetailitemtitle">Problem Sets</h3>
                         ${problemSetMarkup}
                     </div>
+                    <div class="topicdetailsection" id="topicresources"></div>
                 </div>
             </div>
         `;
@@ -248,10 +250,13 @@ async function renderTopicDetail(courses, courseSlug, topicSlug) {
                         <h3 class="topicdetailitemtitle">Problem sets</h3>
                         <div class="problemsetempty"><p>Unable to load problem sets for this topic right now.</p></div>
                     </div>
+                    <div class="topicdetailsection" id="topicresources"></div>
                 </div>
             </div>
         `;
     }
+
+    await initTopicResources(selectedTopic.id);
 }
 
 async function renderSubtopicDetail(courses, courseSlug, topicSlug, subtopicSlug) {

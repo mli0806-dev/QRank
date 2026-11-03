@@ -1,5 +1,7 @@
 const express = require('express');
 const db = require('../config/db');
+const auth = require('../auth');
+const validation = require('../validation');
 const { publicReadLimiter } = require('../middleware/rateLimiters');
 const { splitTags, mergeTags } = require('../services/tags');
 
@@ -78,6 +80,90 @@ router.get("/api/tags", publicReadLimiter, async (req, res) => {
     } catch (err) {
         console.error(err);
         res.status(500).json({ message: "Failed to fetch tags." });
+    }
+});
+
+function mapResource(row) {
+    return {
+        id: row.id,
+        title: row.title,
+        url: row.url,
+        description: row.description || ""
+    };
+}
+
+router.get("/api/topics/:topicId/resources", publicReadLimiter, async (req, res) => {
+    try {
+        const topicId = Number(req.params.topicId);
+
+        if (!Number.isInteger(topicId) || topicId <= 0) {
+            return res.status(400).json({ message: "Invalid topic id." });
+        }
+
+        const [rows] = await db.query(
+            "SELECT id, title, url, description FROM topic_resources WHERE topic_id = ? ORDER BY id ASC",
+            [topicId]
+        );
+
+        res.json({ resources: rows.map(mapResource) });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ message: "Failed to fetch topic resources." });
+    }
+});
+
+router.post("/api/topics/:topicId/resources", auth.requireAdmin, async (req, res) => {
+    try {
+        const topicId = Number(req.params.topicId);
+
+        if (!Number.isInteger(topicId) || topicId <= 0) {
+            return res.status(400).json({ message: "Invalid topic id." });
+        }
+
+        const result = validation.topicResourceSchema.safeParse(req.body || {});
+
+        if (!result.success) {
+            return res.status(400).json({ message: result.error.issues[0].message });
+        }
+
+        const [topicRows] = await db.query("SELECT id FROM topics WHERE id = ? LIMIT 1", [topicId]);
+
+        if (!topicRows.length) {
+            return res.status(404).json({ message: "Topic not found." });
+        }
+
+        const { title, url, description } = result.data;
+
+        const [insert] = await db.query(
+            "INSERT INTO topic_resources (topic_id, title, url, description, created_by) VALUES (?, ?, ?, ?, ?)",
+            [topicId, title, url, description || null, req.user.id]
+        );
+
+        res.status(201).json({ resource: mapResource({ id: insert.insertId, title, url, description }) });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ message: "Failed to add topic resource." });
+    }
+});
+
+router.delete("/api/topic-resources/:id", auth.requireAdmin, async (req, res) => {
+    try {
+        const resourceId = Number(req.params.id);
+
+        if (!Number.isInteger(resourceId) || resourceId <= 0) {
+            return res.status(400).json({ message: "Invalid resource id." });
+        }
+
+        const [result] = await db.query("DELETE FROM topic_resources WHERE id = ?", [resourceId]);
+
+        if (!result.affectedRows) {
+            return res.status(404).json({ message: "Resource not found." });
+        }
+
+        res.json({ message: "Resource deleted." });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ message: "Failed to delete topic resource." });
     }
 });
 

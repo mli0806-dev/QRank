@@ -3,6 +3,7 @@ import { getCurrentUser } from '/js/core/auth-state.js';
 import { renderChoiceInputs } from '/js/problem-sets/choice-render.js';
 import { renderChartsIn } from '/js/chart-render.js';
 import { renderDesmosIn } from '/js/desmos-render.js';
+import { initProblemTools } from '/js/problem-tools.js';
 
 async function loadProblemSetDetail() {
     const container = document.getElementById("problemsetdetailcontainer");
@@ -120,7 +121,7 @@ function renderProblemSetDetail(container, problemSetId, problemSet, problems, t
         : '';
 
     const problemsHtml = problems.length
-        ? problems.map((problem, index) => renderProblem(problem, index, problems.length)).join('')
+        ? problems.map((problem, index) => renderProblem(problem, index, problems.length, problemSet.calculatorAllowed)).join('')
         : '<p class="topicdetailtext">This problem set has no problems yet.</p>';
 
     container.innerHTML = `
@@ -151,6 +152,8 @@ function renderProblemSetDetail(container, problemSetId, problemSet, problems, t
                 checkSingleProblem(problemSetId, problem);
             });
             initProblemAnswerState(problem, form);
+            initChoiceElimination(form);
+            initProblemTools(form);
             initProblemExplainButton(form);
             restorePriorAttempt(problem);
         }
@@ -306,21 +309,33 @@ function updateProblemTocStatus(problemId, isCorrect) {
     }
 }
 
-function renderProblem(problem, index, total) {
+function renderProblem(problem, index, total, calculatorAllowed) {
     const number = index + 1;
 
     const inputHtml = problem.type === "multiple_choice"
-        ? renderChoiceInputs(problem, { interactive: true, namePrefix: `problem-${problem.id}`, selectedValue: problem.priorAnswer })
+        ? renderChoiceInputs(problem, { interactive: true, namePrefix: `problem-${problem.id}`, selectedValue: problem.priorAnswer, eliminable: true })
         : `<input type="text" class="inputs" id="problem-input-${problem.id}" name="problem-${problem.id}" placeholder="Your answer" autocomplete="off" value="${escapeHtml(problem.priorAnswer || "")}">`;
 
     const explainButtonHtml = problem.hasExplanation
         ? '<button type="button" class="topicdetailback problemtakeexplainbutton" disabled>Explain</button>'
         : "";
 
+    const calculatorButtonHtml = calculatorAllowed
+        ? '<button type="button" class="problemtaketool hidden" data-tool="calculator" aria-pressed="false">Calculator</button>'
+        : "";
+
     return `
         <form class="problemtakeitem" id="problemtakeform-${problem.id}">
             <div class="problemtakescroll">
-                <div class="problemtakeprompt"><span class="problemtakenumber">${number}.</span> <span class="problemtakeid">#${escapeHtml(problem.id)}</span> ${renderMarkdown(problem.prompt, "")}</div>
+                <div class="problemtakeheader">
+                    <span class="problemtakenumber">${number}.</span>
+                    <span class="problemtakeid">#${escapeHtml(problem.id)}</span>
+                    <div class="problemtaketools">
+                        ${calculatorButtonHtml}
+                        <button type="button" class="problemtaketool" data-tool="highlight" aria-pressed="false">Highlight</button>
+                    </div>
+                </div>
+                <div class="problemtakeprompt">${renderMarkdown(problem.prompt, "")}</div>
                 <div class="problemtakeinput">${inputHtml}</div>
                 <p class="problemtakefeedback"></p>
             </div>
@@ -425,9 +440,45 @@ function applyProblemResult(item, problem, { isCorrect, correctAnswer, explanati
     lockProblemInputs(item, problem);
 }
 
+function initChoiceElimination(form) {
+    form.querySelectorAll(".problemtakeeliminate").forEach((button) => {
+        button.addEventListener("click", (event) => {
+            event.preventDefault();
+            event.stopPropagation();
+
+            const choice = button.closest(".problemtakechoice");
+            const radio = choice.querySelector(".problemtakechoiceinput");
+
+            if (!choice || radio.disabled) {
+                return;
+            }
+
+            const eliminated = choice.classList.toggle("problemtakechoiceeliminated");
+            button.setAttribute("aria-pressed", String(eliminated));
+
+            if (eliminated && radio.checked) {
+                radio.checked = false;
+                radio.dispatchEvent(new Event("change", { bubbles: true }));
+            }
+        });
+    });
+
+    form.querySelectorAll(".problemtakechoice").forEach((choice) => {
+        choice.addEventListener("click", (event) => {
+            if (choice.classList.contains("problemtakechoiceeliminated") && !event.target.closest(".problemtakeeliminate")) {
+                event.preventDefault();
+            }
+        });
+    });
+}
+
 function lockProblemInputs(item, problem) {
     item.querySelectorAll(".problemtakechoiceinput").forEach((radio) => {
         radio.disabled = true;
+    });
+
+    item.querySelectorAll(".problemtakeeliminate").forEach((button) => {
+        button.disabled = true;
     });
 
     const answerInput = item.querySelector(`#problem-input-${problem.id}`);

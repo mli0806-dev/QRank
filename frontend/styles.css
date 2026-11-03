@@ -284,6 +284,11 @@ h2 {
   text-decoration: none;
 }
 
+.coursepage {
+  padding: 50px;
+  padding-top: 20px;
+}
+
 .topicdetail {
   max-width: 1000px;
   margin: 0 auto;
@@ -422,6 +427,80 @@ main.coursebg {
   margin: 0;
   font-size: var(--fs-3);
   font-weight: normal;
+}
+
+.topicresourcelist {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.topicresourceitem {
+  display: flex;
+  align-items: stretch;
+  gap: var(--space-2);
+  background-color: var(--card);
+  border: var(--border-default);
+}
+
+.topicresourcelink {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  flex: 1;
+  min-width: 0;
+  padding: var(--space-3);
+  color: var(--text);
+  text-decoration: none;
+}
+
+.topicresourcelink:hover .topicresourcetitle {
+  text-decoration: underline;
+}
+
+.topicresourcetitle {
+  font-size: var(--fs-2);
+  overflow-wrap: anywhere;
+}
+
+.topicresourcedescription {
+  font-size: var(--fs-1);
+  opacity: 0.8;
+  overflow-wrap: anywhere;
+}
+
+.topicresourcedelete {
+  align-self: stretch;
+  padding: 0 var(--space-3);
+  background: none;
+  border: none;
+  border-left: var(--border-default);
+  color: var(--text);
+  font-size: var(--fs-3);
+  line-height: 1;
+  cursor: pointer;
+}
+
+.topicresourceform {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.topicresourceinput {
+  flex: 1 1 180px;
+  min-width: 0;
+}
+
+.topicresourceerror {
+  flex-basis: 100%;
+  margin: 0;
+  font-size: var(--fs-1);
+  color: var(--color-error);
 }
 
 .coursenetworkpage {
@@ -837,6 +916,133 @@ main.coursebg {
   border: var(--border-default);
   font-size: var(--fs-2);
   font-weight: 500;
+}
+
+.problemtakeheader {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+.problemtaketools {
+  display: flex;
+  gap: var(--space-1);
+  margin-left: auto;
+}
+
+.problemtaketool {
+  background-color: var(--card);
+  border: var(--border-default);
+  color: var(--text);
+  font-family: inherit;
+  font-size: var(--fs-1);
+  padding: 6px 12px;
+  cursor: pointer;
+}
+
+.problemtaketool:hover {
+  border-color: var(--border-strong);
+}
+
+.problemtaketoolactive {
+  border-color: var(--border-strong);
+  font-weight: 500;
+}
+
+.problemhighlighting {
+  cursor: text;
+}
+
+.problemhighlight {
+  background-color: rgba(90, 169, 230, 0.35);
+  color: inherit;
+  border-radius: 2px;
+}
+
+.problemhighlighting .problemhighlight {
+  cursor: pointer;
+}
+
+.calculatorpanel {
+  position: fixed;
+  right: var(--space-3);
+  bottom: var(--space-3);
+  z-index: 2000;
+  display: flex;
+  flex-direction: column;
+  width: 340px;
+  max-width: calc(100vw - var(--space-3) * 2);
+  background-color: var(--card);
+  border: var(--border-default);
+  box-sizing: border-box;
+}
+
+.calculatorpanelheader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--border);
+  cursor: move;
+  user-select: none;
+  touch-action: none;
+}
+
+.calculatorpaneltitle {
+  font-size: var(--fs-1);
+  color: var(--textsec);
+}
+
+.calculatorpanelclose {
+  border: none;
+  background: none;
+  color: var(--text);
+  font-size: var(--fs-3);
+  line-height: 1;
+  padding: 0 4px;
+  cursor: pointer;
+}
+
+.calculatorpanelmount {
+  height: 420px;
+  background-color: white;
+}
+
+.problemtakeeliminate {
+  margin-left: auto;
+  flex-shrink: 0;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  background: none;
+  color: var(--textsec);
+  font-family: inherit;
+  font-size: var(--fs-4);
+  line-height: 1;
+  cursor: pointer;
+}
+
+.problemtakeeliminate:hover:not(:disabled) {
+  color: var(--text);
+}
+
+.problemtakeeliminate:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.problemtakechoiceeliminated .problemtakechoicetext,
+.problemtakechoiceeliminated .problemtakechoiceletter {
+  text-decoration: line-through;
+  opacity: 0.45;
+}
+
+.problemtakechoiceeliminated .problemtakeeliminate {
+  color: var(--text);
 }
 
 .problemtakechoice:has(.problemtakechoiceinput:checked) {
@@ -2163,6 +2369,15 @@ th {
 }
 
 @media (max-width: 600px) {
+  .coursepage {
+    padding: var(--space-3);
+    padding-top: var(--space-2);
+  }
+
+  .topicdetail {
+    padding: var(--space-3);
+  }
+
   .welcometext {
     font-size: var(--fs-3);
     margin-top: 32px;
@@ -2204,4 +2419,25 @@ th {
   .rankingsearchcontrols {
     flex-wrap: wrap;
   }
+}
+
+.tryaproblem {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-3);
+  padding: var(--space-3);
+  background-color: var(--card);
+  border: var(--border-default);
+  width: fit-content;
+}
+
+#home-intro .tryaproblem {
+  margin: var(--space-3) auto 0;
+}
+
+#home-dashboard .tryaproblem {
+  margin-top: var(--space-3);
+  margin-left: max(0px, calc((100% - (800px + (2 * var(--space-4)) + 2px)) / 2));
 }

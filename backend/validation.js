@@ -44,6 +44,17 @@ const calendarQuerySchema = z.object({
         .refine((value) => Number(value) >= 1 && Number(value) <= 12, "Month out of range.")
 });
 
+const topicResourceSchema = z.object({
+    title: z.string().trim().min(1, "Resource title is required.").max(150, "Resource title is too long."),
+    url: z
+        .string()
+        .trim()
+        .max(500, "Resource link is too long.")
+        .regex(/^https?:\/\//i, "Resource links must start with http:// or https://.")
+        .url("Enter a valid resource link."),
+    description: z.string().trim().max(300, "Resource description is too long.").optional()
+});
+
 const suggestionProblemSchema = z.object({
     type: z.string(),
     prompt: z.string().min(1).max(5000),
@@ -85,5 +96,6 @@ module.exports = {
     loginSchema,
     competitionCreateSchema,
     calendarQuerySchema,
+    topicResourceSchema,
     validateSuggestionProblemsPayload
 };
