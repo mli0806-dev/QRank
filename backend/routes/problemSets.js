@@ -84,7 +84,7 @@ router.get("/api/problem-sets", publicReadLimiter, async (req, res) => {
         }
 
         let query = `
-            SELECT id, name, description, course, topic, subtopic, tags, calculator_allowed, is_public, created_by
+            SELECT id, name, description, course, topic, subtopic, tags, calculator_allowed, graphing_calculator_allowed, is_public, created_by
             FROM problem_sets
         `;
 
@@ -99,6 +99,7 @@ router.get("/api/problem-sets", publicReadLimiter, async (req, res) => {
             ...row,
             tags: splitTags(row.tags),
             calculatorAllowed: Boolean(row.calculator_allowed),
+            graphingCalculatorAllowed: Boolean(row.graphing_calculator_allowed),
             isPublic: Boolean(row.is_public)
         }));
 
@@ -111,7 +112,7 @@ router.get("/api/problem-sets", publicReadLimiter, async (req, res) => {
 
 router.post("/api/problem-sets", auth.requireAdmin, async (req, res) => {
     try {
-        const { name, description, course, topic, subtopic, tags, calculatorAllowed, isPublic, timeLimitMinutes } = req.body || {};
+        const { name, description, course, topic, subtopic, tags, calculatorAllowed, graphingCalculatorAllowed, isPublic, timeLimitMinutes } = req.body || {};
 
         if (!name || !course || !topic) {
             return res.status(400).json({ message: "Name, course, and topic are required." });
@@ -123,6 +124,7 @@ router.post("/api/problem-sets", auth.requireAdmin, async (req, res) => {
         const cleanTopic = String(topic).trim();
         const cleanSubtopic = subtopic ? String(subtopic).trim() : null;
         const cleanCalculatorAllowed = calculatorAllowed ? 1 : 0;
+        const cleanGraphingCalculatorAllowed = graphingCalculatorAllowed ? 1 : 0;
         const cleanIsPublic = isPublic === false ? 0 : 1;
         const cleanedTimeLimitMinutes = cleanTimeLimitMinutes(timeLimitMinutes);
         const manualTags = splitTags(tags);
@@ -130,8 +132,8 @@ router.post("/api/problem-sets", auth.requireAdmin, async (req, res) => {
         const cleanTags = mergeTags(manualTags, courseTags);
 
         const [result] = await db.query(
-            "INSERT INTO problem_sets (name, description, course, topic, subtopic, tags, calculator_allowed, is_public, created_by, time_limit_minutes) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-            [cleanName, cleanDescription, cleanCourse, cleanTopic, cleanSubtopic, cleanTags, cleanCalculatorAllowed, cleanIsPublic, req.user.id, cleanedTimeLimitMinutes]
+            "INSERT INTO problem_sets (name, description, course, topic, subtopic, tags, calculator_allowed, graphing_calculator_allowed, is_public, created_by, time_limit_minutes) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            [cleanName, cleanDescription, cleanCourse, cleanTopic, cleanSubtopic, cleanTags, cleanCalculatorAllowed, cleanGraphingCalculatorAllowed, cleanIsPublic, req.user.id, cleanedTimeLimitMinutes]
         );
 
         res.status(201).json({
@@ -145,6 +147,7 @@ router.post("/api/problem-sets", auth.requireAdmin, async (req, res) => {
                 subtopic: cleanSubtopic,
                 tags: cleanTags,
                 calculatorAllowed: Boolean(cleanCalculatorAllowed),
+                graphingCalculatorAllowed: Boolean(cleanGraphingCalculatorAllowed),
                 isPublic: Boolean(cleanIsPublic),
                 timeLimitMinutes: cleanedTimeLimitMinutes
             }
@@ -159,7 +162,7 @@ router.get("/api/problem-sets/in-progress", auth.requireAuth, async (req, res) =
     try {
         const [rows] = await db.query(
             `
-            SELECT ps.id, ps.name, ps.description, ps.course, ps.topic, ps.subtopic, ps.tags, ps.calculator_allowed,
+            SELECT ps.id, ps.name, ps.description, ps.course, ps.topic, ps.subtopic, ps.tags, ps.calculator_allowed, ps.graphing_calculator_allowed,
                    COUNT(p.id) AS total_problems,
                    COUNT(pa.id) AS attempted_problems,
                    COUNT(CASE WHEN pa.is_correct = 1 THEN 1 END) AS correct_problems
@@ -182,6 +185,7 @@ router.get("/api/problem-sets/in-progress", auth.requireAuth, async (req, res) =
             subtopic: row.subtopic,
             tags: splitTags(row.tags),
             calculatorAllowed: Boolean(row.calculator_allowed),
+            graphingCalculatorAllowed: Boolean(row.graphing_calculator_allowed),
             totalProblems: row.total_problems,
             attemptedProblems: row.attempted_problems,
             correctProblems: row.correct_problems
@@ -199,7 +203,7 @@ router.get("/api/problem-sets/:id", async (req, res) => {
         const { id } = req.params;
 
         const [problemSetRows] = await db.query(
-            "SELECT id, name, description, course, topic, subtopic, tags, calculator_allowed, is_public, created_by, time_limit_minutes FROM problem_sets WHERE id = ? LIMIT 1",
+            "SELECT id, name, description, course, topic, subtopic, tags, calculator_allowed, graphing_calculator_allowed, is_public, created_by, time_limit_minutes FROM problem_sets WHERE id = ? LIMIT 1",
             [id]
         );
 
@@ -223,6 +227,7 @@ router.get("/api/problem-sets/:id", async (req, res) => {
 
         problemSet.tags = splitTags(problemSet.tags);
         problemSet.calculatorAllowed = Boolean(problemSet.calculator_allowed);
+        problemSet.graphingCalculatorAllowed = Boolean(problemSet.graphing_calculator_allowed);
         problemSet.isPublic = Boolean(problemSet.is_public);
         problemSet.isOwner = isOwner;
         problemSet.timeLimitMinutes = problemSet.time_limit_minutes;

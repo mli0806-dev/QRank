@@ -1003,9 +1003,43 @@ main.coursebg {
   cursor: pointer;
 }
 
+.calculatorpanelwide {
+  width: 640px;
+}
+
+.calculatortabs {
+  display: flex;
+  border-bottom: 1px solid var(--border);
+}
+
+.calculatortab {
+  flex: 1;
+  padding: 8px 12px;
+  background: none;
+  border: none;
+  color: var(--text);
+  font-family: inherit;
+  font-size: var(--fs-1);
+  cursor: pointer;
+  opacity: 0.7;
+}
+
+.calculatortab + .calculatortab {
+  border-left: 1px solid var(--border);
+}
+
+.calculatortabactive {
+  background-color: var(--bg);
+  opacity: 1;
+}
+
 .calculatorpanelmount {
   height: 420px;
   background-color: white;
+}
+
+.calculatorpanelmount[data-calculator-mount="graphing"] {
+  height: 460px;
 }
 
 .problemtakeeliminate {

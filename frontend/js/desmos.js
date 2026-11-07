@@ -1,6 +1,8 @@
 import { insertTextAtCursor } from './core/dom.js';
 import { getDesmosConfig, loadDesmosScript } from './desmos-render.js';
 
+const DEFAULT_GRAPH_BOUNDS = { left: -10, right: 10, bottom: -10, top: 10 };
+
 let desmosToolEnabled = false;
 let desmosApiKeyValue = null;
 
@@ -107,6 +109,10 @@ function openDesmosModal(targetTextarea) {
             calculator = mode === "geometry"
                 ? window.Desmos.Geometry(mount)
                 : window.Desmos.GraphingCalculator(mount);
+
+            if (mode !== "geometry") {
+                calculator.setMathBounds(DEFAULT_GRAPH_BOUNDS);
+            }
 
             if (status) {
                 status.textContent = "";

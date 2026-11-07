@@ -2,21 +2,56 @@ import { getDesmosConfig, loadDesmosScript } from './desmos-render.js';
 
 let panel = null;
 let calculatorReady = null;
+let graphingEnabled = false;
+const calculators = {};
+const DEFAULT_GRAPH_BOUNDS = { left: -10, right: 10, bottom: -10, top: 10 };
 
 function buildPanel() {
     const element = document.createElement('div');
-    element.className = 'calculatorpanel hidden';
+    element.className = graphingEnabled ? 'calculatorpanel calculatorpanelwide hidden' : 'calculatorpanel hidden';
     element.innerHTML = `
         <div class="calculatorpanelheader">
             <span class="calculatorpaneltitle">Calculator</span>
             <button type="button" class="calculatorpanelclose" aria-label="Close calculator">&times;</button>
         </div>
-        <div class="calculatorpanelmount"></div>
+        ${graphingEnabled ? `
+            <div class="calculatortabs" role="tablist">
+                <button type="button" class="calculatortab calculatortabactive" data-calculator="scientific" aria-selected="true">Scientific</button>
+                <button type="button" class="calculatortab" data-calculator="graphing" aria-selected="false">Graphing</button>
+            </div>
+        ` : ''}
+        <div class="calculatorpanelmount" data-calculator-mount="scientific"></div>
+        ${graphingEnabled ? '<div class="calculatorpanelmount hidden" data-calculator-mount="graphing"></div>' : ''}
     `;
     document.body.appendChild(element);
     element.querySelector('.calculatorpanelclose').addEventListener('click', () => setCalculatorOpen(false));
     makeDraggable(element, element.querySelector('.calculatorpanelheader'));
+
+    element.querySelectorAll('.calculatortab').forEach((tab) => {
+        tab.addEventListener('click', () => showCalculator(tab.dataset.calculator));
+    });
+
     return element;
+}
+
+function showCalculator(name) {
+    if (!panel) {
+        return;
+    }
+
+    panel.querySelectorAll('.calculatortab').forEach((tab) => {
+        const active = tab.dataset.calculator === name;
+        tab.classList.toggle('calculatortabactive', active);
+        tab.setAttribute('aria-selected', String(active));
+    });
+
+    panel.querySelectorAll('[data-calculator-mount]').forEach((mount) => {
+        mount.classList.toggle('hidden', mount.dataset.calculatorMount !== name);
+    });
+
+    if (calculators[name]) {
+        calculators[name].resize();
+    }
 }
 
 function makeDraggable(element, handle) {
@@ -101,7 +136,13 @@ async function ensureCalculator() {
 
         await loadDesmosScript(config.apiKey);
         panel = panel || buildPanel();
-        window.Desmos.ScientificCalculator(panel.querySelector('.calculatorpanelmount'));
+        calculators.scientific = window.Desmos.ScientificCalculator(panel.querySelector('[data-calculator-mount="scientific"]'));
+
+        if (graphingEnabled) {
+            calculators.graphing = window.Desmos.GraphingCalculator(panel.querySelector('[data-calculator-mount="graphing"]'));
+            calculators.graphing.setMathBounds(DEFAULT_GRAPH_BOUNDS);
+        }
+
         return true;
     })();
 
@@ -246,8 +287,12 @@ function initHighlightTool(form) {
     });
 }
 
-function initProblemTools(form) {
+function initProblemTools(form, options = {}) {
     const calculatorButton = form.querySelector('[data-tool="calculator"]');
+
+    if (options.graphingAllowed) {
+        graphingEnabled = true;
+    }
 
     if (calculatorButton) {
         getDesmosConfig().then((config) => {
@@ -260,7 +305,12 @@ function initProblemTools(form) {
             const ready = await ensureCalculator();
 
             if (ready) {
-                setCalculatorOpen(panel.classList.contains('hidden'));
+                const opening = panel.classList.contains('hidden');
+                setCalculatorOpen(opening);
+
+                if (opening) {
+                    Object.values(calculators).forEach((calculator) => calculator.resize());
+                }
             }
         });
     }

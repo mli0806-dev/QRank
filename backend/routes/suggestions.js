@@ -31,6 +31,7 @@ function mapSuggestionRow(row) {
         createdProblemSetId: row.created_problem_set_id,
         editingProblemSetId: row.editing_problem_set_id,
         calculatorAllowed: Boolean(row.calculator_allowed),
+        graphingCalculatorAllowed: Boolean(row.graphing_calculator_allowed),
         assessmentEnabled: Boolean(row.assessment_enabled),
         isPublic: Boolean(row.is_public),
         createdBy: row.created_by,
@@ -43,11 +44,11 @@ function cleanTimeLimitMinutes(timeLimitMinutes) {
     return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
 }
 
-const SUGGESTION_COLUMNS = "id, name, description, course, topic, subtopic, tags, problems, submitter, status, created_at, created_problem_set_id, editing_problem_set_id, calculator_allowed, assessment_enabled, is_public, created_by, time_limit_minutes";
+const SUGGESTION_COLUMNS = "id, name, description, course, topic, subtopic, tags, problems, submitter, status, created_at, created_problem_set_id, editing_problem_set_id, calculator_allowed, graphing_calculator_allowed, assessment_enabled, is_public, created_by, time_limit_minutes";
 
 router.post("/api/problem-set-suggestions", publicWriteLimiter, auth.requireAuth, async (req, res) => {
     try {
-        const { name, description, course, topic, subtopic, tags, problems, calculatorAllowed, assessmentEnabled, isPublic, timeLimitMinutes } = req.body || {};
+        const { name, description, course, topic, subtopic, tags, problems, calculatorAllowed, graphingCalculatorAllowed, assessmentEnabled, isPublic, timeLimitMinutes } = req.body || {};
 
         if (!name || !course || !topic || !problems) {
             return res.status(400).json({ message: "Name, course, topic, and problems are required." });
@@ -68,13 +69,14 @@ router.post("/api/problem-set-suggestions", publicWriteLimiter, auth.requireAuth
         const cleanProblems = String(problems).trim();
         const cleanSubmitter = req.user.username;
         const cleanCalculatorAllowed = calculatorAllowed ? 1 : 0;
+        const cleanGraphingCalculatorAllowed = graphingCalculatorAllowed ? 1 : 0;
         const cleanAssessmentEnabled = assessmentEnabled && req.user.role === "admin" ? 1 : 0;
         const cleanIsPublic = isPublic === false ? 0 : 1;
         const cleanedTimeLimitMinutes = cleanTimeLimitMinutes(timeLimitMinutes);
 
         const [result] = await db.query(
-            "INSERT INTO problem_set_suggestions (name, description, course, topic, subtopic, tags, problems, submitter, calculator_allowed, assessment_enabled, is_public, created_by, time_limit_minutes) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-            [cleanName, cleanDescription, cleanCourse, cleanTopic, cleanSubtopic, cleanTags, cleanProblems, cleanSubmitter, cleanCalculatorAllowed, cleanAssessmentEnabled, cleanIsPublic, req.user.id, cleanedTimeLimitMinutes]
+            "INSERT INTO problem_set_suggestions (name, description, course, topic, subtopic, tags, problems, submitter, calculator_allowed, graphing_calculator_allowed, assessment_enabled, is_public, created_by, time_limit_minutes) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            [cleanName, cleanDescription, cleanCourse, cleanTopic, cleanSubtopic, cleanTags, cleanProblems, cleanSubmitter, cleanCalculatorAllowed, cleanGraphingCalculatorAllowed, cleanAssessmentEnabled, cleanIsPublic, req.user.id, cleanedTimeLimitMinutes]
         );
 
         res.status(201).json({
@@ -120,7 +122,7 @@ router.get("/api/admin/problem-set-suggestions/:id", auth.requireAdmin, async (r
 
 router.put("/api/admin/problem-set-suggestions/:id", auth.requireAdmin, async (req, res) => {
     try {
-        const { name, description, course, topic, subtopic, tags, problems, calculatorAllowed, assessmentEnabled, isPublic, timeLimitMinutes } = req.body || {};
+        const { name, description, course, topic, subtopic, tags, problems, calculatorAllowed, graphingCalculatorAllowed, assessmentEnabled, isPublic, timeLimitMinutes } = req.body || {};
 
         if (!name || !course || !topic || !problems) {
             return res.status(400).json({ message: "Name, course, topic, and problems are required." });
@@ -135,13 +137,14 @@ router.put("/api/admin/problem-set-suggestions/:id", auth.requireAdmin, async (r
         const cleanTags = splitTags(tags).join(',');
         const cleanSubtopic = subtopic ? String(subtopic).trim() : null;
         const cleanCalculatorAllowed = calculatorAllowed ? 1 : 0;
+        const cleanGraphingCalculatorAllowed = graphingCalculatorAllowed ? 1 : 0;
         const cleanAssessmentEnabled = assessmentEnabled ? 1 : 0;
         const cleanIsPublic = isPublic === false ? 0 : 1;
         const cleanedTimeLimitMinutes = cleanTimeLimitMinutes(timeLimitMinutes);
 
         const [result] = await db.query(
-            "UPDATE problem_set_suggestions SET name = ?, description = ?, course = ?, topic = ?, subtopic = ?, tags = ?, problems = ?, calculator_allowed = ?, assessment_enabled = ?, is_public = ?, time_limit_minutes = ? WHERE id = ?",
-            [String(name).trim(), String(description || "").trim(), String(course).trim(), String(topic).trim(), cleanSubtopic, cleanTags, String(problems).trim(), cleanCalculatorAllowed, cleanAssessmentEnabled, cleanIsPublic, cleanedTimeLimitMinutes, req.params.id]
+            "UPDATE problem_set_suggestions SET name = ?, description = ?, course = ?, topic = ?, subtopic = ?, tags = ?, problems = ?, calculator_allowed = ?, graphing_calculator_allowed = ?, assessment_enabled = ?, is_public = ?, time_limit_minutes = ? WHERE id = ?",
+            [String(name).trim(), String(description || "").trim(), String(course).trim(), String(topic).trim(), cleanSubtopic, cleanTags, String(problems).trim(), cleanCalculatorAllowed, cleanGraphingCalculatorAllowed, cleanAssessmentEnabled, cleanIsPublic, cleanedTimeLimitMinutes, req.params.id]
         );
 
         if (result.affectedRows === 0) {
@@ -158,7 +161,7 @@ router.put("/api/admin/problem-set-suggestions/:id", auth.requireAdmin, async (r
 router.post("/api/admin/problem-sets/:id/edit", auth.requireAdmin, async (req, res) => {
     try {
         const [problemSetRows] = await db.query(
-            "SELECT id, name, description, course, topic, subtopic, tags, calculator_allowed, assessment_enabled, is_public, created_by, time_limit_minutes FROM problem_sets WHERE id = ? LIMIT 1",
+            "SELECT id, name, description, course, topic, subtopic, tags, calculator_allowed, graphing_calculator_allowed, assessment_enabled, is_public, created_by, time_limit_minutes FROM problem_sets WHERE id = ? LIMIT 1",
             [req.params.id]
         );
 
@@ -183,8 +186,8 @@ router.post("/api/admin/problem-sets/:id/edit", auth.requireAdmin, async (req, r
         })));
 
         const [result] = await db.query(
-            "INSERT INTO problem_set_suggestions (name, description, course, topic, subtopic, tags, problems, submitter, status, editing_problem_set_id, calculator_allowed, assessment_enabled, is_public, created_by, time_limit_minutes) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'pending', ?, ?, ?, ?, ?, ?)",
-            [problemSet.name, problemSet.description, problemSet.course, problemSet.topic, problemSet.subtopic, problemSet.tags, problemsJson, req.user.username, problemSet.id, problemSet.calculator_allowed, problemSet.assessment_enabled, problemSet.is_public, problemSet.created_by, problemSet.time_limit_minutes]
+            "INSERT INTO problem_set_suggestions (name, description, course, topic, subtopic, tags, problems, submitter, status, editing_problem_set_id, calculator_allowed, graphing_calculator_allowed, assessment_enabled, is_public, created_by, time_limit_minutes) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'pending', ?, ?, ?, ?, ?, ?, ?)",
+            [problemSet.name, problemSet.description, problemSet.course, problemSet.topic, problemSet.subtopic, problemSet.tags, problemsJson, req.user.username, problemSet.id, problemSet.calculator_allowed, problemSet.graphing_calculator_allowed, problemSet.assessment_enabled, problemSet.is_public, problemSet.created_by, problemSet.time_limit_minutes]
         );
 
         res.status(201).json({ suggestionId: result.insertId });
@@ -209,7 +212,7 @@ router.patch("/api/admin/problem-set-suggestions/:id", auth.requireAdmin, async 
         await connection.beginTransaction();
 
         const [suggestionRows] = await connection.query(
-            "SELECT id, name, description, course, topic, subtopic, tags, problems, editing_problem_set_id, calculator_allowed, assessment_enabled, is_public, created_by, time_limit_minutes FROM problem_set_suggestions WHERE id = ? LIMIT 1 FOR UPDATE",
+            "SELECT id, name, description, course, topic, subtopic, tags, problems, editing_problem_set_id, calculator_allowed, graphing_calculator_allowed, assessment_enabled, is_public, created_by, time_limit_minutes FROM problem_set_suggestions WHERE id = ? LIMIT 1 FOR UPDATE",
             [id]
         );
 
@@ -251,8 +254,8 @@ router.patch("/api/admin/problem-set-suggestions/:id", auth.requireAdmin, async 
 
             if (publishedProblemSetId) {
                 const [updateResult] = await connection.query(
-                    "UPDATE problem_sets SET name = ?, description = ?, course = ?, topic = ?, subtopic = ?, tags = ?, calculator_allowed = ?, assessment_enabled = ?, is_public = ?, time_limit_minutes = ? WHERE id = ?",
-                    [suggestion.name, suggestion.description, suggestion.course, suggestion.topic, suggestion.subtopic, finalTags, suggestion.calculator_allowed, suggestion.assessment_enabled, suggestion.is_public, suggestion.time_limit_minutes, publishedProblemSetId]
+                    "UPDATE problem_sets SET name = ?, description = ?, course = ?, topic = ?, subtopic = ?, tags = ?, calculator_allowed = ?, graphing_calculator_allowed = ?, assessment_enabled = ?, is_public = ?, time_limit_minutes = ? WHERE id = ?",
+                    [suggestion.name, suggestion.description, suggestion.course, suggestion.topic, suggestion.subtopic, finalTags, suggestion.calculator_allowed, suggestion.graphing_calculator_allowed, suggestion.assessment_enabled, suggestion.is_public, suggestion.time_limit_minutes, publishedProblemSetId]
                 );
 
                 if (updateResult.affectedRows === 0) {
@@ -263,8 +266,8 @@ router.patch("/api/admin/problem-set-suggestions/:id", auth.requireAdmin, async 
                 await connection.query("DELETE FROM problems WHERE problem_set_id = ?", [publishedProblemSetId]);
             } else {
                 const [problemSetResult] = await connection.query(
-                    "INSERT INTO problem_sets (name, description, course, topic, subtopic, tags, calculator_allowed, assessment_enabled, is_public, created_by, time_limit_minutes) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-                    [suggestion.name, suggestion.description, suggestion.course, suggestion.topic, suggestion.subtopic, finalTags, suggestion.calculator_allowed, suggestion.assessment_enabled, suggestion.is_public, suggestion.created_by, suggestion.time_limit_minutes]
+                    "INSERT INTO problem_sets (name, description, course, topic, subtopic, tags, calculator_allowed, graphing_calculator_allowed, assessment_enabled, is_public, created_by, time_limit_minutes) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                    [suggestion.name, suggestion.description, suggestion.course, suggestion.topic, suggestion.subtopic, finalTags, suggestion.calculator_allowed, suggestion.graphing_calculator_allowed, suggestion.assessment_enabled, suggestion.is_public, suggestion.created_by, suggestion.time_limit_minutes]
                 );
 
                 publishedProblemSetId = problemSetResult.insertId;

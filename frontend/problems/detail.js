@@ -121,7 +121,7 @@ function renderProblemSetDetail(container, problemSetId, problemSet, problems, t
         : '';
 
     const problemsHtml = problems.length
-        ? problems.map((problem, index) => renderProblem(problem, index, problems.length, problemSet.calculatorAllowed)).join('')
+        ? problems.map((problem, index) => renderProblem(problem, index, problems.length, problemSet.calculatorAllowed || problemSet.graphingCalculatorAllowed)).join('')
         : '<p class="topicdetailtext">This problem set has no problems yet.</p>';
 
     container.innerHTML = `
@@ -132,6 +132,7 @@ function renderProblemSetDetail(container, problemSetId, problemSet, problems, t
             <button type="button" id="start-over-button" class="topicdetailback hidden">Start Over</button>
             <div class="topicdetailtext">${renderMarkdown(problemSet.description, "No description available yet.")}</div>
             ${problemSet.calculatorAllowed ? '<p class="tag">Calculator approved</p>' : ''}
+            ${problemSet.graphingCalculatorAllowed ? '<p class="tag">Graphing calculator approved</p>' : ''}
             ${problemSet.isPublic === false ? '<p class="tag">Private (only visible to you)</p>' : ''}
             ${tocHtml}
         </div>
@@ -153,7 +154,7 @@ function renderProblemSetDetail(container, problemSetId, problemSet, problems, t
             });
             initProblemAnswerState(problem, form);
             initChoiceElimination(form);
-            initProblemTools(form);
+            initProblemTools(form, { graphingAllowed: problemSet.graphingCalculatorAllowed });
             initProblemExplainButton(form);
             restorePriorAttempt(problem);
         }
