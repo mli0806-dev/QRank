@@ -11,7 +11,9 @@ function cleanTimeLimitMinutes(timeLimitMinutes) {
     return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
 }
 
-async function startOrResumeTimer(viewer, problemSetId, timeLimitMinutes) {
+const TIMER_MAX_TICK_SECONDS = 30;
+
+async function touchTimer(viewer, problemSetId, timeLimitMinutes, accumulate) {
     const totalSeconds = timeLimitMinutes * 60;
 
     if (!viewer) {
@@ -24,11 +26,23 @@ async function startOrResumeTimer(viewer, problemSetId, timeLimitMinutes) {
     );
 
     const [rows] = await db.query(
-        "SELECT TIMESTAMPDIFF(SECOND, started_at, NOW()) AS elapsed FROM problem_set_timers WHERE user_id = ? AND problem_set_id = ? LIMIT 1",
+        "SELECT elapsed_seconds, TIMESTAMPDIFF(SECOND, last_seen_at, NOW()) AS sinceLastSeen FROM problem_set_timers WHERE user_id = ? AND problem_set_id = ? LIMIT 1",
         [viewer.id, problemSetId]
     );
 
-    return Math.max(0, totalSeconds - Number(rows[0]?.elapsed ?? 0));
+    let elapsed = Math.max(0, Number(rows[0]?.elapsed_seconds ?? 0));
+    const sinceLastSeen = Number(rows[0]?.sinceLastSeen);
+
+    if (accumulate && Number.isFinite(sinceLastSeen)) {
+        elapsed += Math.min(Math.max(0, sinceLastSeen), TIMER_MAX_TICK_SECONDS);
+    }
+
+    await db.query(
+        "UPDATE problem_set_timers SET elapsed_seconds = ?, last_seen_at = NOW() WHERE user_id = ? AND problem_set_id = ?",
+        [elapsed, viewer.id, problemSetId]
+    );
+
+    return Math.max(0, totalSeconds - elapsed);
 }
 
 router.get("/api/problem-sets/count", async (req, res) => {
@@ -232,7 +246,7 @@ router.get("/api/problem-sets/:id", async (req, res) => {
         problemSet.isOwner = isOwner;
         problemSet.timeLimitMinutes = problemSet.time_limit_minutes;
         problemSet.timeRemainingSeconds = problemSet.time_limit_minutes
-            ? await startOrResumeTimer(viewer, problemSet.id, problemSet.time_limit_minutes)
+            ? await touchTimer(viewer, problemSet.id, problemSet.time_limit_minutes, false)
             : null;
 
         const priorAttemptsByProblemId = new Map();
@@ -427,6 +441,39 @@ router.post("/api/problem-sets/:id/check", publicWriteLimiter, async (req, res) 
     } catch (err) {
         console.error(err);
         res.status(500).json({ message: "Failed to check answers." });
+    }
+});
+
+router.post("/api/problem-sets/:id/timer", auth.requireAuth, async (req, res) => {
+    try {
+        const [rows] = await db.query(
+            "SELECT id, time_limit_minutes, is_public, created_by FROM problem_sets WHERE id = ? LIMIT 1",
+            [req.params.id]
+        );
+
+        if (rows.length === 0) {
+            return res.status(404).json({ message: "Problem set not found." });
+        }
+
+        const problemSet = rows[0];
+        const isOwner = req.user.id === problemSet.created_by;
+        const isAdmin = req.user.role === "admin";
+
+        if (!problemSet.is_public && !isOwner && !isAdmin) {
+            return res.status(404).json({ message: "Problem set not found." });
+        }
+
+        if (!problemSet.time_limit_minutes) {
+            return res.json({ timeRemainingSeconds: null });
+        }
+
+        const accumulate = req.body?.active !== false;
+        const timeRemainingSeconds = await touchTimer(req.user, problemSet.id, problemSet.time_limit_minutes, accumulate);
+
+        res.json({ timeRemainingSeconds });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ message: "Failed to update the problem set timer." });
     }
 });
 

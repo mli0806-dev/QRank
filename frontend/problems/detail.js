@@ -45,7 +45,7 @@ async function loadProblemSetDetail() {
         renderProblemSetDetail(container, problemSetId, problemSet, problems, targetProblemId);
         initProblemSetEditButton(problemSetId);
         initStartOverButton(problemSetId);
-        initCountdownTimer(problemSet.timeRemainingSeconds);
+        initCountdownTimer(problemSetId, problemSet.timeRemainingSeconds);
     } catch (error) {
         console.error("Failed to load problem set:", error);
         container.innerHTML = `
@@ -58,7 +58,12 @@ async function loadProblemSetDetail() {
     }
 }
 
+const TIMER_HEARTBEAT_MS = 15000;
+
 let countdownIntervalId = null;
+let heartbeatIntervalId = null;
+let timerVisibilityHandler = null;
+let timerPageHideHandler = null;
 
 function formatCountdown(totalSeconds) {
     const clamped = Math.max(0, totalSeconds);
@@ -67,14 +72,33 @@ function formatCountdown(totalSeconds) {
     return `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
 }
 
-function initCountdownTimer(timeRemainingSeconds) {
-    const timerEl = document.getElementById("problem-set-timer");
-    const valueEl = document.getElementById("problem-set-timer-value");
-
+function stopCountdownTimer() {
     if (countdownIntervalId) {
         clearInterval(countdownIntervalId);
         countdownIntervalId = null;
     }
+
+    if (heartbeatIntervalId) {
+        clearInterval(heartbeatIntervalId);
+        heartbeatIntervalId = null;
+    }
+
+    if (timerVisibilityHandler) {
+        document.removeEventListener("visibilitychange", timerVisibilityHandler);
+        timerVisibilityHandler = null;
+    }
+
+    if (timerPageHideHandler) {
+        window.removeEventListener("pagehide", timerPageHideHandler);
+        timerPageHideHandler = null;
+    }
+}
+
+function initCountdownTimer(problemSetId, timeRemainingSeconds) {
+    const timerEl = document.getElementById("problem-set-timer");
+    const valueEl = document.getElementById("problem-set-timer-value");
+
+    stopCountdownTimer();
 
     if (!timerEl || !valueEl) {
         return;
@@ -88,25 +112,106 @@ function initCountdownTimer(timeRemainingSeconds) {
     let remainingSeconds = timeRemainingSeconds;
     timerEl.classList.remove("hidden");
 
-    if (remainingSeconds <= 0) {
+    const expire = () => {
         valueEl.textContent = "Time's up";
+        stopCountdownTimer();
+    };
+
+    if (remainingSeconds <= 0) {
+        expire();
         return;
     }
 
     valueEl.textContent = formatCountdown(remainingSeconds);
 
+    const sendHeartbeat = (active) => fetch(`/api/problem-sets/${encodeURIComponent(problemSetId)}/timer`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ active }),
+        keepalive: true
+    });
+
+    const syncWithServer = async (active) => {
+        try {
+            const response = await sendHeartbeat(active);
+
+            if (!response.ok) {
+                return;
+            }
+
+            const { timeRemainingSeconds: serverRemaining } = await response.json();
+
+            if (typeof serverRemaining !== "number") {
+                return;
+            }
+
+            remainingSeconds = serverRemaining;
+
+            if (remainingSeconds <= 0) {
+                expire();
+                return;
+            }
+
+            valueEl.textContent = formatCountdown(remainingSeconds);
+        } catch (error) {
+            console.error("Failed to sync the problem set timer:", error);
+        }
+    };
+
+    const startHeartbeat = () => {
+        if (heartbeatIntervalId) {
+            return;
+        }
+
+        heartbeatIntervalId = setInterval(() => syncWithServer(true), TIMER_HEARTBEAT_MS);
+    };
+
+    const pauseHeartbeat = () => {
+        if (!heartbeatIntervalId) {
+            return;
+        }
+
+        clearInterval(heartbeatIntervalId);
+        heartbeatIntervalId = null;
+    };
+
     countdownIntervalId = setInterval(() => {
+        if (document.visibilityState !== "visible") {
+            return;
+        }
+
         remainingSeconds -= 1;
 
         if (remainingSeconds <= 0) {
-            valueEl.textContent = "Time's up";
-            clearInterval(countdownIntervalId);
-            countdownIntervalId = null;
+            expire();
             return;
         }
 
         valueEl.textContent = formatCountdown(remainingSeconds);
     }, 1000);
+
+    timerVisibilityHandler = () => {
+        if (document.visibilityState === "visible") {
+            syncWithServer(false);
+            startHeartbeat();
+            return;
+        }
+
+        pauseHeartbeat();
+        sendHeartbeat(true).catch(() => {});
+    };
+
+    timerPageHideHandler = () => {
+        pauseHeartbeat();
+        sendHeartbeat(true).catch(() => {});
+    };
+
+    document.addEventListener("visibilitychange", timerVisibilityHandler);
+    window.addEventListener("pagehide", timerPageHideHandler);
+
+    if (document.visibilityState === "visible") {
+        startHeartbeat();
+    }
 }
 
 function renderProblemSetDetail(container, problemSetId, problemSet, problems, targetProblemId) {

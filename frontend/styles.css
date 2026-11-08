@@ -1168,7 +1168,6 @@ main.coursebg {
 }
 
 .problemsettimervalue {
-  font-size: var(--fs-3);
   font-variant-numeric: tabular-nums;
   color: var(--text);
 }
@@ -2096,6 +2095,40 @@ th {
 .inputs:focus-visible {
   outline: 1px solid var(--text);
   outline-offset: 2px;
+}
+
+.passwordfield {
+  position: relative;
+  display: flex;
+  width: 100%;
+}
+
+.passwordfield .inputs {
+  flex: 1;
+  min-width: 0;
+  padding-right: 44px;
+  box-sizing: border-box;
+}
+
+.passwordtoggle {
+  position: absolute;
+  top: 1px;
+  right: 1px;
+  bottom: 1px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  padding: 0;
+  background: none;
+  border: none;
+  color: var(--text);
+  opacity: 0.7;
+  cursor: pointer;
+}
+
+.passwordtoggle:hover {
+  opacity: 1;
 }
 
 .inputs.profilebio {

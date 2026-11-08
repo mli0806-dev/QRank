@@ -2,6 +2,7 @@ import { escapeHtml, renderMarkdown, autoResizeTextarea } from './core/dom.js';
 import { renderRankBadge } from './core/rank-badge.js';
 import { getCurrentUser } from './core/auth-state.js';
 import { initMarkdownToolbar, renderMarkdownToolbar } from './core/markdown-toolbar.js';
+import { initPasswordToggles } from './core/password-toggle.js';
 
 function getProfileRoute() {
     const path = window.location.pathname.replace(/\/+$/, "");
@@ -99,6 +100,8 @@ async function renderProfilePage() {
                 ` : ''}
             </div>
         `;
+
+        initPasswordToggles(container);
 
         const openResetButton = document.getElementById("openResetButton");
         const resetPanel = document.getElementById("resetPanel");

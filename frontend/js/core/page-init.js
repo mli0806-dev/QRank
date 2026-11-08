@@ -1,6 +1,7 @@
 import { injectHeaderFooter, initMobileNav } from './header-footer.js';
 import { initTheme } from './theme.js';
 import { checkUserStatus } from './auth-state.js';
+import { initPasswordToggles } from './password-toggle.js';
 
 async function pingServer() {
     try {
@@ -23,6 +24,7 @@ function initCorePage() {
     initTheme();
     initMobileNav();
     checkUserStatus();
+    initPasswordToggles();
     pingServer();
 }
 
