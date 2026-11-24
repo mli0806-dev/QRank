@@ -33,24 +33,11 @@ async function updateCourseCount() {
 async function updateUserCount() {
     try {
         const response = await fetch('/api/users/count');
-        if (!response.ok) {
-            throw new Error(`API error ${response.status} ${response.statusText}`);
-        }
-
         const data = await response.json();
         const userCountElement = document.getElementById('user-count');
-        const count = typeof data.count === 'number' ? data.count : Number(data.count);
 
-        if (userCountElement && Number.isSafeInteger(count) && count >= 0) {
-            const formattedCount = count.toLocaleString();
-            userCountElement.textContent = formattedCount;
-
-            const description = document.querySelector('meta[name="description"]');
-            if (description) {
-                description.content = `QRank is a free and open source problem bank and competition platform made by students, for students. Trusted by ${formattedCount}+ users worldwide.`;
-            }
-        } else {
-            throw new Error('Invalid user count received from API.');
+        if (userCountElement && typeof data.count === 'number') {
+            userCountElement.textContent = data.count.toLocaleString();
         }
     } catch (error) {
         console.error('Failed to fetch user count:', error);
@@ -91,8 +78,6 @@ async function renderDashboard() {
 }
 
 async function initHomePage() {
-    updateUserCount();
-
     const currentUser = await getCurrentUser();
     const intro = document.getElementById('home-intro');
     const dashboard = document.getElementById('home-dashboard');
@@ -114,6 +99,7 @@ async function initHomePage() {
     } else {
         updateProblemSetCount();
         updateCourseCount();
+        updateUserCount();
     }
 }
 
