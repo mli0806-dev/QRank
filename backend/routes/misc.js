@@ -31,6 +31,20 @@ router.get("/api/auth/google-config", (req, res) => {
     });
 });
 
+router.get("/api/auth/captcha-config", (req, res) => {
+    if (!env.turnstile.siteKey || !env.turnstile.secretKey) {
+        return res.json({
+            enabled: false,
+            message: "Captcha is not configured."
+        });
+    }
+
+    res.json({
+        enabled: true,
+        siteKey: env.turnstile.siteKey
+    });
+});
+
 router.get("/api/desmos-config", (req, res) => {
     if (!env.desmosApiKey) {
         return res.json({

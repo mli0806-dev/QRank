@@ -33,11 +33,18 @@ async function updateCourseCount() {
 async function updateUserCount() {
     try {
         const response = await fetch('/api/users/count');
+        if (!response.ok) {
+            throw new Error(`API error ${response.status} ${response.statusText}`);
+        }
+
         const data = await response.json();
         const userCountElement = document.getElementById('user-count');
+        const count = typeof data.count === 'number' ? data.count : Number(data.count);
 
-        if (userCountElement && typeof data.count === 'number') {
-            userCountElement.textContent = data.count.toLocaleString();
+        if (userCountElement && Number.isSafeInteger(count) && count >= 0) {
+            userCountElement.textContent = count.toLocaleString();
+        } else {
+            throw new Error('Invalid user count received from API.');
         }
     } catch (error) {
         console.error('Failed to fetch user count:', error);

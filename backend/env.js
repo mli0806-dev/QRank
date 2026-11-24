@@ -16,6 +16,10 @@ module.exports = {
     cronSecret: process.env.CRON_SECRET,
     googleClientId: process.env.GOOGLE_CLIENT_ID || "",
     desmosApiKey: (process.env.DESMOS_API_KEY || "").trim(),
+    turnstile: {
+        siteKey: (process.env.TURNSTILE_SITE_KEY || "").trim(),
+        secretKey: (process.env.TURNSTILE_SECRET_KEY || "").trim()
+    },
     resetCodeTtlMinutes: parseInt(process.env.RESET_CODE_TTL_MINUTES || "15", 10),
     allowDevEmailFallback: process.env.NODE_ENV !== "production" && process.env.DEV_PASSWORD_RESET_FALLBACK === "true",
     smtp: {

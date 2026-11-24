@@ -1980,6 +1980,12 @@ th {
   text-align: center;
 }
 
+.captchafield {
+  display: flex;
+  justify-content: center;
+  margin: var(--space-1) 0;
+}
+
 .authcheckboxlabel {
   display: flex;
   align-items: flex-start;

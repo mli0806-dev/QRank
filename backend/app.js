@@ -13,13 +13,13 @@ app.use(helmet({
     contentSecurityPolicy: {
         directives: {
             defaultSrc: ["'self'"],
-            scriptSrc: ["'self'", "https://accounts.google.com", "https://www.desmos.com", "'unsafe-eval'"],
+            scriptSrc: ["'self'", "https://accounts.google.com", "https://www.desmos.com", "https://challenges.cloudflare.com", "'unsafe-eval'"],
             styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.cdnfonts.com", "https://www.desmos.com", "https://accounts.google.com"],
             imgSrc: ["'self'", "data:", "https://accounts.google.com", "https://*.googleusercontent.com", "https://www.desmos.com"],
             fontSrc: ["'self'", "data:", "https://fonts.cdnfonts.com", "https://www.desmos.com"],
-            connectSrc: ["'self'", "https://accounts.google.com", "https://www.desmos.com"],
+            connectSrc: ["'self'", "https://accounts.google.com", "https://www.desmos.com", "https://challenges.cloudflare.com"],
             workerSrc: ["'self'", "blob:"],
-            frameSrc: ["https://accounts.google.com", "https://doq.world"],
+            frameSrc: ["https://accounts.google.com", "https://doq.world", "https://challenges.cloudflare.com"],
             objectSrc: ["'none'"],
             baseUri: ["'self'"],
             frameAncestors: ["'self'"]

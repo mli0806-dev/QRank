@@ -7,13 +7,14 @@ const db = require('../config/db');
 const { authLimiter } = require('../middleware/rateLimiters');
 const { dummyPasswordHash } = require('../services/security');
 const { getUniqueUsername, verifyGoogleCredential } = require('../services/googleAuth');
+const { verifyCaptcha } = require('../services/captcha');
 const env = require('../env');
 
 const router = express.Router();
 
 router.post("/api/register", authLimiter, async (req, res) => {
     try {
-        const {username, email, password} = req.body || {};
+        const {username, email, password, captchaToken} = req.body || {};
 
         if (!username || !email || !password) {
             return res.status(400).json({message: "Username, email, and password are required."});
@@ -23,6 +24,12 @@ router.post("/api/register", authLimiter, async (req, res) => {
 
         if (!validationResult.success) {
             return res.status(400).json({ message: validationResult.error.issues[0].message });
+        }
+
+        const captchaResult = await verifyCaptcha(captchaToken, req.ip);
+
+        if (!captchaResult.success) {
+            return res.status(400).json({ message: captchaResult.message });
         }
 
         const [existingUser] = await db.query("SELECT id FROM users WHERE email = ? OR username = ?", [email, username]);

@@ -1,3 +1,66 @@
+const CAPTCHA_SCRIPT_URL = "https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit";
+
+let captchaWidgetId = null;
+let captchaScriptPromise = null;
+
+function loadCaptchaScript() {
+    if (window.turnstile) {
+        return Promise.resolve();
+    }
+
+    if (captchaScriptPromise) {
+        return captchaScriptPromise;
+    }
+
+    captchaScriptPromise = new Promise((resolve, reject) => {
+        const script = document.createElement("script");
+        script.src = CAPTCHA_SCRIPT_URL;
+        script.async = true;
+        script.defer = true;
+        script.onload = () => (window.turnstile ? resolve() : reject(new Error("Turnstile failed to initialize.")));
+        script.onerror = () => reject(new Error("Failed to load the captcha script."));
+        document.head.appendChild(script);
+    });
+
+    return captchaScriptPromise;
+}
+
+async function initRegisterCaptcha() {
+    const container = document.getElementById("register-captcha");
+
+    if (!container) {
+        return;
+    }
+
+    try {
+        const response = await fetch("/api/auth/captcha-config");
+        const config = await response.json();
+
+        if (!config.enabled || !config.siteKey) {
+            return;
+        }
+
+        await loadCaptchaScript();
+        container.classList.remove("hidden");
+        captchaWidgetId = window.turnstile.render(container, {
+            sitekey: config.siteKey,
+            theme: "auto"
+        });
+    } catch (error) {
+        console.error("Failed to set up the captcha:", error);
+    }
+}
+
+function getCaptchaToken() {
+    return captchaWidgetId === null ? "" : window.turnstile.getResponse(captchaWidgetId) || "";
+}
+
+function resetCaptcha() {
+    if (captchaWidgetId !== null) {
+        window.turnstile.reset(captchaWidgetId);
+    }
+}
+
 document.addEventListener("DOMContentLoaded", () => {
     const loginForm = document.getElementById("login-form");
     const registerForm = document.getElementById("register-form");
@@ -17,6 +80,8 @@ document.addEventListener("DOMContentLoaded", () => {
     const registerTerms = document.getElementById("register-terms");
     const googleRegisterButton = document.getElementById("google-register-button");
     const googleRegisterConsent = document.getElementById("google-register-consent");
+
+    initRegisterCaptcha();
 
     if (registerTerms && googleRegisterButton) {
         const syncGoogleConsentState = () => {
@@ -71,25 +136,37 @@ document.addEventListener("DOMContentLoaded", () => {
             const email = document.getElementById("register-email").value;
             const password = document.getElementById("register-password").value;
             const errorDiv = document.getElementById("register-error");
-            
+            const captchaToken = getCaptchaToken();
+
+            if (captchaWidgetId !== null && !captchaToken) {
+                if (errorDiv) {
+                    errorDiv.textContent = "Please complete the captcha.";
+                    errorDiv.style.display = "block";
+                }
+                return;
+            }
+
             try {
                 const response = await fetch("/api/register", {    
                     method: "POST",
                     headers: {"Content-Type": "application/json"},
-                    body: JSON.stringify({username, email, password})
+                    body: JSON.stringify({username, email, password, captchaToken})
                 });
                 const data = await response.json();
                 
                 if (!response.ok) {
+                    resetCaptcha();
                     if (errorDiv) {
                         errorDiv.textContent = data.error || data.message || "Registration failed.";
                         errorDiv.style.display = "block";
                     }
                 } else {
                     registerForm.reset();
+                    resetCaptcha();
                 }
             } catch (error) {
                 console.error("Registration error:", error);
+                resetCaptcha();
                 if (errorDiv) {
                     errorDiv.textContent = "Registration failed.";
                     errorDiv.style.display = "block";
