@@ -42,7 +42,13 @@ async function updateUserCount() {
         const count = typeof data.count === 'number' ? data.count : Number(data.count);
 
         if (userCountElement && Number.isSafeInteger(count) && count >= 0) {
-            userCountElement.textContent = count.toLocaleString();
+            const formattedCount = count.toLocaleString();
+            userCountElement.textContent = formattedCount;
+
+            const description = document.querySelector('meta[name="description"]');
+            if (description) {
+                description.content = `QRank is a free and open source problem bank and competition platform made by students, for students. Trusted by ${formattedCount}+ users worldwide.`;
+            }
         } else {
             throw new Error('Invalid user count received from API.');
         }
@@ -85,6 +91,8 @@ async function renderDashboard() {
 }
 
 async function initHomePage() {
+    updateUserCount();
+
     const currentUser = await getCurrentUser();
     const intro = document.getElementById('home-intro');
     const dashboard = document.getElementById('home-dashboard');
@@ -106,7 +114,6 @@ async function initHomePage() {
     } else {
         updateProblemSetCount();
         updateCourseCount();
-        updateUserCount();
     }
 }
 
